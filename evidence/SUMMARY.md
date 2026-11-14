@@ -19,7 +19,7 @@ points at the file that contains the raw numbers.
 | A12 | no new elevation | 0 UAC, never requires admin | all runs as the normal user: `Elevated=False`, `User=<machine>\<user>`, 0 `consent.exe` processes; no step asks for elevation | **PASS** | this table + `evidence/P6.md` |
 | A13 | release compliance | LICENSE + THIRD-PARTY, 0 unknown licenses, no local paths/tokens/logs | MIT + THIRD-PARTY; in-repo scan 1 known / 0 unknown; prerequisites pixel MIT + uia MIT only; `check-repo: 129 files, 0 FAIL, 0 WARN` | **PASS** | `evidence/P6.md` |
 | A14 | security docs | SECURITY.md with the five statements | present: local execution / zero outbound / per-action / audit is not a boundary / disclosure, plus threat model and out-of-scope list | **PASS** | `SECURITY.md`, `evidence/P6.md` |
-| A15 | CI | static-only, green | workflow written (static suites only, GUI tests excluded) and validated + reproduced locally by `tools/ci-local.mjs` (3/3); **never executed on GitHub** — no repository, and pushing is on hold by the human's rule | **PREPARED, NOT PROVEN** | `evidence/P6.md` |
+| A15 | CI | static-only, green | **run 43598260178 on a fresh `windows-latest` runner: success (20 s)** — private repo `jawavia/dsh-dexter`, commit `dfb5aaa`, push-triggered; the GUI tests are deliberately excluded from the workflow | **PASS** | `evidence/A15-CI.md` |
 
 **Beyond the order's original six sections**, the live install produced these verified
 capabilities (all with raw transcripts in the evidence folder):
@@ -36,10 +36,10 @@ capabilities (all with raw transcripts in the evidence folder):
 **Overall:** A1–A14 pass with one documented caveat (D8, the single legacy `loaded`
 marker row; the stroke licence caveat D3 is now resolved), A11 at 19/20 with the single
 deliberate rule difference documented above, A12 no
-violation, A15 prepared + locally reproducible but never executed on a runner. Per the
-order's own gate ("任一不通过 → 不进 P6 发布"), the only remaining blocker to a public
-release is A15 — which is itself gated by the human's standing no-push rule
-(DEVIATIONS.md D11).
+violation, A15 executed on a fresh GitHub runner and green (run 43598260178, private repo). The
+order's gate (“任一不通过 → 不进 P6 发布”) is therefore satisfied for A1–A15; what remains
+outside the table is the human's decision about publishing (DEVIATIONS.md D11), not a
+missing proof.
 
 ## Reproduce
 

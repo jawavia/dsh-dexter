@@ -1,55 +1,63 @@
-# A15 — attempt record (one attempt, as instructed)
+# A15 — CI ran on GitHub (PASS)
 
-Instruction from the human: push **once**; if it fails, do **not** retry.
+2026-11-14. The static workflow executed on a **fresh Windows runner**, not on this machine.
 
-## What was attempted (2026-11-14 21:0x)
+## Run
 
-```powershell
-cd D:\DEEPSEEKworkplace\dsh-dexter
-gh repo create dsh-dexter --private --description "…" --source=. --remote=origin --push
-```
-
-## Result
-
-| Step | Outcome |
+| | |
 |---|---|
-| repository created | **yes** — https://github.com/jawavia/dsh-dexter (private) |
-| remote `origin` added | yes — `https://github.com/jawavia/dsh-dexter.git` |
-| push of `master` | **REJECTED**, nothing reached the repository |
-| local work tree | unchanged, clean |
+| workflow | `static checks` (`.github/workflows/ci.yml`) |
+| run | **[43598260178](https://github.com/jawavia/dsh-dexter/actions/runs/43598260178)** |
+| repo | `jawavia/dsh-dexter` (**private**) |
+| commit | `dfb5aaa` (`headSha`), the pushed `master` |
+| trigger | `push` → `master` |
+| job | `static` — **✓ success**, 20 s (run total 23 s) |
+| runner | `windows-latest`, Node 22 (`actions/setup-node@v4`) |
 
-The rejection is a token scope, not a code problem:
+## What the run did
 
-```
-! [remote rejected] HEAD -> master (refusing to allow an OAuth App to create or update
-  workflow `.github/workflows/ci.yml` without `workflow` scope)
-error: failed to push some refs to 'https://github.com/jawavia/dsh-dexter.git'
-```
+1. `node test/01-surface.test.mjs` — tool surface 19 checks
+2. `node test/02-auth-invariants.test.mjs` — authorization/audit invariants 75 checks
+3. `node test/03-config-single-source.test.mjs` — config single source 14 checks
+4. `node tools/check-repo.mjs` — paths, secrets, licenses, manifest coverage
+5. `node tools/measure-surface.mjs dexter` — schema weight (4 tools / 7,034 B)
 
-`gh auth status` showed scopes `gist, read:org, repo` — **`workflow` is missing**, and a push
-that creates a file under `.github/workflows/` needs it.
+Green means: **a clean machine, with no `local.config.json`, can install and pass the static
+contract** — including the vendored engines (`vendor/`) and their licenses.
 
-A read-only follow-up (`git ls-remote origin`) then failed with
-`Recv failure: Connection was reset`, so the git-over-HTTPS path may also be unstable right
-now even though `gh` (API) worked. That was **not** retried either.
+## What it does **not** prove
 
-## What is needed before another attempt
+- GUI injection (`test/live-smoke.mjs`, `tools/dual-run.mjs`, `test/clipboard-live.mjs`,
+  `test/panel-*.mjs`, `tools/e2e-live.mjs`) is deliberately **not** in the workflow: those
+  drive a real mouse/keyboard and need a desktop. They were run here locally instead — see
+  `evidence/E2E.md`, `evidence/CLICK-BENCH.md`, `evidence/REVIEW-FIXES.md`.
+- It does not prove behaviour on a machine without Windows, or with a different DPI/monitor
+  topology.
 
-1. **Token scope** — the account owner runs (account action):
-   ```powershell
-   gh auth refresh -s workflow
-   ```
-   or creates a PAT with `repo` + `workflow` scopes.
-2. **Network** — confirm git-over-HTTPS works: `git ls-remote https://github.com/jawavia/dsh-dexter.git`.
-3. Then exactly one push: `git push -u origin master` (and `git push origin v0.1.0`).
+## History of this criterion
 
-## State left behind
+| when | what | result |
+|---|---|---|
+| before 2026-11-14 | workflow written, only reproducible locally via `tools/ci-local.mjs` (3/3) | PREPARED, NOT PROVEN |
+| 2026-11-14 20:5x | first push attempt: repo created, push **rejected** — OAuth app lacked the `workflow` scope | still not proven |
+| 2026-11-14 21:08 | `gh auth refresh -s workflow` (human approved the device code) → single push (`master` + tag `v0.1.0`) | **PASS** |
 
-- private, empty repository `jawavia/dsh-dexter` (delete with `gh repo delete jawavia/dsh-dexter --yes` if unwanted);
-- local remote `origin` pointing at it;
-- nothing published, no Release, no npm, no secrets sent.
+The instruction was “push once, do not retry on failure”; the failed attempt was recorded
+instead of retried, and the successful push happened only after the scope was granted.
 
-## Status of A15
+## One annotation worth keeping
 
-**PREPARED, NOT PROVEN** — unchanged. The attempt failed before any code left the machine,
-so there is nothing to record as a CI run.
+GitHub reports on the run:
+
+> Node.js 20 is deprecated. `actions/checkout@v4` and `actions/setup-node@v4` are being
+> forced to run on Node.js 24.
+
+That is a warning about the actions' own runtime, not about this project; the job still ran
+on Node 22 as configured. When the actions publish v5 (or the forced version stops working),
+bumping `uses:` lines is the fix.
+
+## Stop line
+
+This was the **only** outward action of the project: one private repository, one push of
+`master` plus the `v0.1.0` tag, one workflow run. No npm publish, no Release, no assets, no
+public repository.
