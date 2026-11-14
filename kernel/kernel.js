@@ -47,6 +47,7 @@ export class Kernel {
     this.attachments = attachments
     this.buttons = buttons
     this.docsPath = docsPath
+    this.activity = { kind: 'idle', detail: '', at: 0 }
     this.logger = logger
     this.now = clock
     this.lastViewAt = 0
@@ -91,6 +92,7 @@ export class Kernel {
    */
   async view({ action, args = {}, exec = {} } = {}) {
     const startedAt = this.now()
+    this.#setActivity('viewing', String(action || 'view'))
     const route = VIEW_ROUTES[action] || 'pixel'
     if (route === 'uia') {
       const result = await this.#viewUia({ action, args })
@@ -396,6 +398,7 @@ export class Kernel {
   async act({ action, args = {}, exec = {} } = {}) {
     const startedAt = this.now()
     const capability = String(action || '').trim().toLowerCase()
+    this.#setActivity('acting', capability)
     if (capability === 'stop') return this.#stopFromTool(exec)
     if (!['move', 'click', 'drag', 'scroll', 'type', 'key', 'hotkey', 'clipboard_get', 'clipboard_set'].includes(capability)) {
       return { ok: false, text: `未知 action "${action}"：可用的写动作是 move/click/drag/scroll/type/key/hotkey（另有 stop 立即撤销授权）。` }
@@ -438,6 +441,7 @@ export class Kernel {
     }
 
     const idle = await this.human.waitForIdle({ signal: exec.signal })
+    if (!idle.ok) this.#setActivity('waiting', '你在用鼠标键盘，已暂停')
     // Stop dominates everything: a stopped gate must refuse immediately instead of
     // waiting for the human to go idle and then acting.
     const stopped = this.#stopDenial()
@@ -498,6 +502,8 @@ export class Kernel {
         this.logger('[dexter] 鼠标键探测不可用，悬停按普通写动作处理')
       }
     }
+    // Ask first: while the human is deciding, the panel says so.
+    this.#setActivity('waiting', hoverFree ? '悬停（免授权）' : '等你批准')
     const auth = await this.gate.authorize({
       tool: 'hands_act',
       capability,
@@ -536,6 +542,8 @@ export class Kernel {
       return { ok: false, text: stale }
     }
 
+    // Authorized: from here on the panel says what is being injected.
+    this.#setActivity('acting', `${capability}${target.label ? ` · ${target.label}` : ''}`)
     const forceAsk = target.category === 'sensitive' && this.config.sensitiveAsk
     const step = await this.#runOne({
       tool: 'hands_act',
@@ -981,6 +989,27 @@ export class Kernel {
     return gateStop
   }
 
+  /** Record what the agent is doing right now (the panel and status read this). */
+  #setActivity(kind, detail) {
+    this.activity = { kind, detail: String(detail || ''), at: this.now() }
+  }
+
+  /** Current activity, with age, for hands_status and the desktop panel. */
+  currentActivity() {
+    const ageMs = this.activity.at ? this.now() - this.activity.at : -1
+    return { kind: this.activity.kind, detail: this.activity.detail, ageMs }
+  }
+
+  /** Short status line for the panel: 在看 / 在操作 / 在等待 / 空闲. */
+  activityLine() {
+    const { kind, detail, ageMs } = this.currentActivity()
+    if (kind === 'viewing' || kind === 'acting' || kind === 'waiting') {
+      const verb = kind === 'viewing' ? '在看' : kind === 'acting' ? '在操作' : '在等待'
+      return ageMs >= 0 && ageMs < 20000 ? `${verb}：${detail}` : `空闲（上次 ${verb}：${detail}）`
+    }
+    return '空闲'
+  }
+
   /** Compact status for hands_status and the apply-time log. */
   status({ tail = 8, doctor = false } = {}) {
     const gate = this.gate.snapshot()
@@ -997,6 +1026,7 @@ export class Kernel {
       backends,
       audit: this.audit ? this.audit.stats() : null,
       hotkeyHealth: this.hotkeys ? this.hotkeys.summary() : '热键：未检测',
+      activity: this.activityLine(),
       lastView: { at: this.lastViewAt, action: this.lastViewAction, ageMs: this.lastViewAt ? this.now() - this.lastViewAt : -1 },
       runs: this.runs,
       recent: this.audit ? this.audit.tail(tail) : [],

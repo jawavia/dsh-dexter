@@ -56,6 +56,23 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
     return { ok: true, path: exe, built: true }
   }
 
+  const LABELS = {
+    reset: '复位到右上角',
+    toggle: '显示 / 隐藏面板',
+    exit: '退出面板',
+    tray: 'dsh-dexter 桌面面板',
+  }
+
+  function writeLabels() {
+    try {
+      mkdirSync(dataDir, { recursive: true })
+      const body = Object.entries(LABELS).map(([key, value]) => `${key}=${value}`).join('\n')
+      writeFileSync(join(dataDir, 'labels.txt'), `${body}\n`, 'utf8')
+    } catch (error) {
+      logger(`界面文字写入失败（面板会退回英文）: ${error && error.message ? error.message : error}`)
+    }
+  }
+
   /** One or two lines: headline, optional detail. The panel shows them as-is. */
   function writeState(headline, detail = '') {
     try {
@@ -106,6 +123,7 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
     }
     try {
       if (existsSync(stopPath)) rmSync(stopPath, { force: true })
+      writeLabels()
       child = spawn(built.path, [dataDir], { detached: true, stdio: 'ignore', windowsHide: false })
       child.unref()
       started = true

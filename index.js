@@ -296,14 +296,15 @@ export function apply(ctx, rawConfig = {}) {
           try {
             const snapshot = kernel.status({ tail: 1 })
             const grant = snapshot.gate && snapshot.gate.grant
-            const head = grant && grant.active
-              ? `● hands · 授权 ${Math.max(0, Math.round(grant.remainingMs / 60000))} 分钟 / ${Math.max(0, grant.actions - grant.used)} 次`
-              : '● hands · 未授权（逐次请示）'
-            const last = Array.isArray(snapshot.recent) && snapshot.recent.length > 0 ? snapshot.recent[snapshot.recent.length - 1] : null
-            const detail = last
-              ? `${last.tool || ''} ${last.capability || ''} → ${last.decision || ''}${last.result ? ` (${last.result})` : ''}`
-              : '双击展开 · 右键菜单 · 拖动移动'
-            panel.writeState(head, detail)
+            const stopped = Boolean(snapshot.gate && snapshot.gate.stopped)
+            const head = stopped
+              ? '● hands · 已急停（需重新授权）'
+              : grant && grant.active
+                ? `● hands · 授权 ${Math.max(0, Math.round(grant.remainingMs / 60000))} 分钟 / ${Math.max(0, grant.actions - grant.used)} 次`
+                : '● hands · 未授权（逐次请示）'
+            // Second line answers "what is it doing with the mouse right now".
+            const activity = snapshot.activity || '空闲'
+            panel.writeState(head, activity)
           } catch { /* the panel keeps its last text */ }
         }
         paint()

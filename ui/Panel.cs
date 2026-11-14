@@ -49,8 +49,34 @@ namespace DshDexterPanel
     internal sealed class PanelForm : Form
     {
         private const int GWL_EXSTYLE = -20;
-        private const int WM_NCLBUTTONDOWN = 0xA1;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+
+        /// <summary>
+        /// A status strip must never take focus: if it became the foreground window, the next
+        /// keystroke or click from an injection could land on the panel instead of the target.
+        /// </summary>
+        protected override bool ShowWithoutActivation
+        {
+            get { return true; }
+        }
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= WS_EX_NOACTIVATE;
+                return cp;
+            }
+        }
+
+        protected override void OnActivated(EventArgs e)
+        {
+            base.OnActivated(e);
+        }
+
         private const int HTCAPTION = 0x2;
+        private const int WM_NCLBUTTONDOWN = 0xA1;
 
         [DllImport("user32.dll")]
         private static extern int SetWindowLong(IntPtr hWnd, int index, int value);
@@ -65,6 +91,10 @@ namespace DshDexterPanel
         private readonly string statePath;
         private readonly string posPath;
         private readonly string stopPath;
+        private string labelReset = "Reset to top-right";
+        private string labelToggle = "Show / hide panel";
+        private string labelExit = "Exit panel";
+        private string labelTray = "dsh-dexter";
         private readonly System.Windows.Forms.Timer poll;
         private readonly Label dot;
         private readonly Label headline;
@@ -138,25 +168,26 @@ namespace DshDexterPanel
             Controls.Add(detail);
 
             menu = new ContextMenuStrip();
-            menu.Items.Add("Reset to top-right", null, delegate { ResetPosition(); });
-            menu.Items.Add("Show / hide panel", null, delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); });
-            menu.Items.Add("Exit panel", null, delegate { Close(); });
+            menu.Items.Add(labelReset, null, delegate { ResetPosition(); });
+            menu.Items.Add(labelToggle, null, delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); });
+            menu.Items.Add(labelExit, null, delegate { Close(); });
             ContextMenuStrip = menu;
 
             // The tray icon carries the same menu: a borderless window can be dragged off the
             // screen edge or hidden behind another window, so there is always a way back.
             tray = new NotifyIcon();
             tray.Icon = SystemIcons.Application;
-            tray.Text = "dsh-dexter";
+            tray.Text = labelTray;
             tray.Visible = true;
             ContextMenuStrip trayMenu = new ContextMenuStrip();
-            trayMenu.Items.Add("Show / hide panel", null, delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); });
-            trayMenu.Items.Add("Reset to top-right", null, delegate { ResetPosition(); });
-            trayMenu.Items.Add("Exit panel", null, delegate { Close(); });
+            trayMenu.Items.Add(labelToggle, null, delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); });
+            trayMenu.Items.Add(labelReset, null, delegate { ResetPosition(); });
+            trayMenu.Items.Add(labelExit, null, delegate { Close(); });
             tray.ContextMenuStrip = trayMenu;
             tray.DoubleClick += delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); };
 
             LoadPosition();
+            LoadLabels();
             MouseDown += OnDragStart;
             headline.MouseDown += OnDragStart;
             dot.MouseDown += OnDragStart;
@@ -170,6 +201,34 @@ namespace DshDexterPanel
             poll.Tick += delegate { Poll(); };
             poll.Start();
             Poll();
+        }
+
+        /// <summary>
+        /// Interface text comes from labels.txt (UTF-8, key=value) so this source stays ASCII:
+        /// the in-box csc reads a BOM-less file as ANSI, which would mangle Chinese literals.
+        /// </summary>
+        private void LoadLabels()
+        {
+            try
+            {
+                string path = Path.Combine(dir, "labels.txt");
+                if (!File.Exists(path)) return;
+                foreach (string raw in File.ReadAllLines(path, Encoding.UTF8))
+                {
+                    string line = raw.Trim();
+                    if (line.Length == 0 || line.StartsWith("#")) continue;
+                    int at = line.IndexOf('=');
+                    if (at <= 0) continue;
+                    string key = line.Substring(0, at).Trim().ToLowerInvariant();
+                    string value = line.Substring(at + 1).Trim();
+                    if (value.Length == 0) continue;
+                    if (key == "reset") labelReset = value;
+                    else if (key == "toggle") labelToggle = value;
+                    else if (key == "exit") labelExit = value;
+                    else if (key == "tray") labelTray = value;
+                }
+            }
+            catch { }
         }
 
         private void OnDragStart(object sender, MouseEventArgs e)
