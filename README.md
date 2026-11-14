@@ -118,8 +118,11 @@ application covering the chat (`panelEnabled`, default on):
 - it is a separate `Panel.exe`, compiled once with the in-box `csc` into
   `~/.dsh/dexter/panel/`; disabling the plugin reaps it (verified 1 → 0). If it ever
   lingers: `Get-Process Panel | Stop-Process -Force`;
-- the in-page Web chip (`client.js`) still exists for when the page is focused, but it
-  starts hidden — inside the window it can always be covered.
+- **click-through has escape hatches**: once the panel is transparent the mouse cannot
+  reach its own menu, so the tray icon keeps the same menu, and `/dexter panel
+  through|off|show|hide|reset|exit` writes a one-shot command the panel polls;
+- there is **no Web-side widget**: an element inside the page disappears the moment another
+  window covers the chat, which is exactly the case a status strip exists for.
 
 ## Allowed and not allowed uses
 
