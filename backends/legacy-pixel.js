@@ -302,6 +302,36 @@ export async function createPixelBackend({ config, audit, approval = null, attac
         return null
       }
     },
+    /**
+     * The kernel verifies `expect` through this name. The engine's status only refreshes after
+     * an action, so ask it for a fresh reading when the cached one is missing — otherwise a
+     * perfectly verifiable click reported "后端不提供前台窗口信息，无法验证".
+     */
+    foreground() {
+      let window = null
+      try {
+        window = state.lastStatus && state.lastStatus.foreground ? state.lastStatus.foreground : null
+      } catch {
+        window = null
+      }
+      if (!window) {
+        try {
+          // The engine refreshes its own status before a write; asking it again is cheap and
+          // keeps the verification honest (state.status() exists in the engine runtime).
+          if (typeof state.status === 'function') {
+            const fresh = state.status()
+            if (fresh && fresh.foreground) window = fresh.foreground
+          }
+        } catch { /* keep null */ }
+      }
+      if (!window) return null
+      const pid = Number(window.pid) || 0
+      return {
+        title: window.title || window.name || '',
+        pid,
+        process: window.process || window.exe || '',
+      }
+    },
     /** Read side: the engine's own `screen_view` (10 actions in one tool). */
     async view({ action, args = {}, exec = {} }) {
       if (!READ_ACTIONS.has(action)) return { ok: false, text: `legacy-pixel 不支持 view action=${action}` }

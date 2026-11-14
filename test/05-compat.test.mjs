@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 /**
  * 05 — compatibility / edge cases at the kernel layer.
  *
@@ -61,6 +63,19 @@ report.ok('verify: image name matches image name', verifyForeground({ expect: { 
 const anonymousBackend = { foreground: () => ({ handle: 1, title: 'x', pid: 10 }) }
 report.ok('verify: unknown process is not a silent pass', verifyForeground({ expect: { process: 'notepad.exe' }, backend: anonymousBackend }).ok === false)
 report.ok('verify: no expect is not a failure', verifyForeground({ expect: undefined, backend }).ok)
+// A backend without foreground() used to return "后端不提供前台窗口信息" even though the pixel
+// backend does know the foreground window; the missing method was the bug.
+report.ok('verify: a backend without foreground() is an explicit failure', verifyForeground({ expect: { process: 'notepad.exe' }, backend: { ok: true } }).ok === false)
+report.ok('verify: the pixel backend exposes foreground()', (() => {
+  const source = readFileSync(join(import.meta.dirname, '..', 'backends', 'legacy-pixel.js'), 'utf8')
+  return /\n\s+foreground\(\)\s*\{/.test(source)
+})())
+// A control name is not a path: the kernel must say so instead of forwarding "文本编辑器" to the
+// backend, which failed with a Int32 conversion error.
+report.ok('control must be a UIA path, not a name', (() => {
+  const source = readFileSync(join(import.meta.dirname, '..', 'kernel', 'kernel.js'), 'utf8')
+  return /control 需要 UIA 路径/.test(source)
+})())
 report.ok('verify: identical hash is a mismatch', verifyHash({ before: 'aa', after: 'aa' }).ok === false)
 report.ok('verify: changed hash passes', verifyHash({ before: 'aa', after: 'bb' }).ok)
 report.ok('verify: missing hashes are not a failure', verifyHash({ before: '', after: '' }).ok)

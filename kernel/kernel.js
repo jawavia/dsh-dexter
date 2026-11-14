@@ -294,6 +294,14 @@ export class Kernel {
   async #resolveControlRect({ control, window: windowSpec }) {
     const uia = this.backends.uia
     if (!uia || !uia.ok) return { ok: false, reason: 'legacy-uia 不可用，无法按控件路径定位。' }
+    // `control` is a path from the UIA tree ("0/2/1"), never a control name: the backend
+    // would otherwise fail with "cannot convert 文本编辑器 to Int32".
+    if (!/^\d+(\/\d+)*$/.test(String(control ?? '').trim())) {
+      return {
+        ok: false,
+        reason: `control 需要 UIA 路径（如 0/2/1），不是名字「${control}」。先 hands_view { action: 'uia' } 拿路径，或直接给坐标 x/y。`,
+      }
+    }
     let handle = null
     if (windowSpec && typeof windowSpec === 'object') {
       const resolved = this.#resolveWindow(windowSpec)
