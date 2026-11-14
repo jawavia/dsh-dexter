@@ -59,6 +59,12 @@ report.ok('it never shows a window', !/form\.Show\(\)/.test(source) && /Applicat
 report.ok('it is a tool window (no taskbar/Alt+Tab entry)', /WS_EX_TOOLWINDOW/.test(source))
 report.ok('it exits when the parent closes stdin', /OpenStandardInput/.test(source))
 report.ok('csc resolves on this machine', cscPath().toLowerCase().endsWith('csc.exe'), cscPath())
+// CI has no desktop session; starting the listener there locked a compiled .exe inside the temp
+// dir and made measure-surface fail with EPERM on unlink. Both guards must stay.
+const indexSource = readFileSync(join(import.meta.dirname, '..', 'index.js'), 'utf8')
+report.ok('the listener is skipped in CI', indexSource.includes(process.env.CI !== 'true'))
+const measureSource = readFileSync(join(import.meta.dirname, '..', 'tools', 'measure-surface.mjs'), 'utf8')
+report.ok('measure-surface never claims the hotkeys', measureSource.includes('DSH_DEXTER_NO_HOTKEYS'))
 
 const ok = report.finish()
 process.exit(ok ? 0 : 1)

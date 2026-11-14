@@ -18,6 +18,10 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { capture } from './surface-harness.mjs'
 
+// Booting the plugin must not claim the real global hotkeys (and must not leave a compiled
+// listener behind): this tool only measures the tool surface.
+process.env.DSH_DEXTER_NO_HOTKEYS = '1'
+
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
 

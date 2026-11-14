@@ -368,7 +368,12 @@ export function apply(ctx, rawConfig = {}) {
       // The engine's helper otherwise owns Ctrl+Alt+F12 for a gate this plugin bypasses, so
       // the key did nothing here. Own it: the helper releases the arm combo (its emergency
       // stop stays), and this listener turns presses into the same actions as the buttons.
-      if (config.hotkeysEnabled && process.env.DSH_DEXTER_NO_HOTKEYS !== '1') {
+      // No desktop session in CI: registering global hotkeys there is meaningless, and the
+      // compiled listener would keep its .exe locked while a tool cleans its temp dir.
+      const hotkeysAllowed = config.hotkeysEnabled
+        && process.env.DSH_DEXTER_NO_HOTKEYS !== '1'
+        && process.env.CI !== 'true'
+      if (hotkeysAllowed) {
         const built = buildHotkeys({ layout: HERE, dataDir: dataDir(), csc: cscPath(), logger })
         if (!built.ok) {
           logger(`热键监听不可用（热键不生效，按钮和命令仍可用）：${built.reason}`)
