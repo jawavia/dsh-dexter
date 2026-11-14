@@ -66,20 +66,21 @@ export class Gate {
       return null
     }
     if (this.grant.used >= this.grant.actions) {
+      // Do NOT drop the grant object: `extendGrant` revives an exhausted session (that is
+      // what the extend hotkey is for). Authorization still sees "no grant" here.
       this.#auditRow({ tool: 'gate', capability: 'grant', decision: 'grant-exhausted', approval: 'session', reason: `session used ${this.grant.used}/${this.grant.actions} actions` })
-      this.grant = null
       return null
     }
     return this.grant
   }
 
   /** Sliding-window rate cap. Returns 0 when allowed, else ms to wait. */
-  #rateWait() {
+  #rateWait(need = 1) {
     const limit = this.config.maxActionsPerMinute
     if (!limit || limit <= 0) return 0
     const now = this.now()
     this.actionTimes = this.actionTimes.filter((at) => now - at < RATE_WINDOW_MS)
-    if (this.actionTimes.length < limit) return 0
+    if (this.actionTimes.length + need <= limit) return 0
     const oldest = this.actionTimes[0] || now
     return Math.max(1, RATE_WINDOW_MS - (now - oldest))
   }
@@ -181,7 +182,10 @@ export class Gate {
    *          forceAsk?:boolean, hoverFree?:boolean, target?:string}} input
    * @returns {Promise<{allowed:boolean, approval:string, reason:string, retryAfterMs?:number}>}
    */
-  async authorize({ tool, capability, exec = {}, reason = '', dryRun = false, forceAsk = false, hoverFree = false, target = '' } = {}) {
+  async authorize({ tool, capability, exec = {}, reason = '', dryRun = false, forceAsk = false, hoverFree = false, target = '', actions = 1 } = {}) {
+    // One decision may cover a whole batch, so it must be charged for every step it covers:
+    // otherwise 25 injections cost one grant credit and one rate tick.
+    const charge = clampInt(actions, 1, 25, 1)
     if (dryRun) return { allowed: true, approval: 'dry-run', reason: 'rehearsal: no approval consumed' }
     if (this.config.readOnly) {
       this.denials += 1
@@ -196,21 +200,21 @@ export class Gate {
           + '当前没有任何授权，下一次写动作一律拒绝。需要继续时由人手执行 /dexter arm 或按 Ctrl+Alt+F12 重新授权。',
       }
     }
-    const wait = this.#rateWait()
+    const wait = this.#rateWait(charge)
     if (wait > 0) {
       this.denials += 1
       return {
         allowed: false,
         approval: 'none',
         retryAfterMs: wait,
-        reason: `⛔ 频率上限：最近 60 秒已经执行 ${this.config.maxActionsPerMinute} 次写动作，请等 ${Math.ceil(wait / 1000)} 秒（或调高 maxActionsPerMinute）。`,
+        reason: `⛔ 频率上限：最近 60 秒已经执行 ${this.config.maxActionsPerMinute} 次写动作，这一批需要 ${charge} 次，请等 ${Math.ceil(wait / 1000)} 秒（或调高 maxActionsPerMinute）。`,
       }
     }
 
     // A bare hover: authorized by policy (config.hoverFree), still rate-capped and still
     // audited, and it does NOT consume a session credit.
     if (hoverFree) {
-      this.#recordAction()
+      for (let i = 0; i < charge; i += 1) this.#recordAction()
       return {
         allowed: true,
         approval: 'hover(free)',
@@ -220,9 +224,18 @@ export class Gate {
 
     const grant = this.#prune()
     if (grant && !forceAsk) {
-      grant.used += 1
-      this.uses += 1
-      this.#recordAction()
+      const left = Math.max(0, grant.actions - grant.used)
+      if (left < charge) {
+        this.denials += 1
+        return {
+          allowed: false,
+          approval: 'none',
+          reason: `⛔ 会话授权余额不足：这一批需要 ${charge} 次，会话只剩 ${left} 次。请 /dexter arm 或 /dexter extend 加额度后重试。`,
+        }
+      }
+      grant.used += charge
+      this.uses += charge
+      for (let i = 0; i < charge; i += 1) this.#recordAction()
       return {
         allowed: true,
         approval: `session:${grant.used}/${grant.actions}`,
@@ -234,7 +247,7 @@ export class Gate {
       const asked = await this.#askHuman({ tool, capability, exec, reason, target, forceAsk })
       if (asked.allowed) {
         this.approvals += 1
-        this.#recordAction()
+        for (let i = 0; i < charge; i += 1) this.#recordAction()
         return asked
       }
       this.denials += 1
@@ -295,6 +308,9 @@ export class Gate {
       stopped: this.stopped ? { ...this.stopped } : null,
       grant: active
         ? {
+          // `active` is what the panel and status read: a grant object may exist while it
+          // has no credits or has just expired, and that is NOT an open session.
+          active: Math.max(0, active.actions - active.used) > 0 && active.expiresAt > now,
           minutes: active.minutes,
           actions: active.actions,
           used: active.used,

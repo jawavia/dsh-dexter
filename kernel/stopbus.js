@@ -34,6 +34,7 @@ export class StopBus {
    */
   constructor({ dataDir, probe = null, pollMs = 80, onStop = () => {}, onArm = null, onExtend = null, combos = null, clock = () => Date.now() } = {}) {
     this.combos = combos || { hard: HARD, soft: SOFT, arm: ARM, extend: EXTEND }
+    this.suppressUntil = 0
     this.dataDir = dataDir
     this.probe = probe
     this.pollMs = Math.max(40, Math.min(1000, pollMs))
@@ -93,21 +94,25 @@ export class StopBus {
 
   /** One polling pass. Exposed so tests can drive it deterministically. */
   poll() {
-    const escDown = this.probe ? (() => { try { return Boolean(this.probe.keyDown('esc')) } catch { return false } })() : false
+    // Our own injected keystrokes appear in the global key state. Only the exact combo we
+    // injected is ignored (see ignoreCombo); every other stop stays live.
+    const escDown = this.probe && !this.#ignored(['esc'])
+      ? (() => { try { return Boolean(this.probe.keyDown('esc')) } catch { return false } })()
+      : false
     if (this.#edge('esc', escDown)) this.#fire('hard', 'human', '主人在键盘上按了 Esc')
-    const hardDown = this.probe ? this.#combo(this.combos.stop || HARD) : false
+    const hardDown = this.probe && !this.#ignored(this.combos.stop || HARD) ? this.#combo(this.combos.stop || HARD) : false
     if (this.#edge('hard', hardDown)) this.#fire('hard', 'human', '主人按了 Ctrl+Alt+F11')
-    const softDown = this.probe ? this.#combo(this.combos.softStop || SOFT) : false
+    const softDown = this.probe && !this.#ignored(this.combos.softStop || SOFT) ? this.#combo(this.combos.softStop || SOFT) : false
     if (this.#edge('soft', softDown)) this.#fire('soft', 'human', '主人按了 Ctrl+Shift+F11')
     // Ctrl+Alt+F12 arms (configured minutes/actions); Ctrl+Alt+F10 extends the open
     // session. Both only ever come from a human's keyboard.
-    const armDown = this.probe ? this.#combo(this.combos.arm || ARM) : false
+    const armDown = this.probe && !this.#ignored(this.combos.arm || ARM) ? this.#combo(this.combos.arm || ARM) : false
     if (this.#edge('arm', armDown) && this.onArm) {
       try {
         this.onArm()
       } catch { /* the callback owns its failures */ }
     }
-    const extendDown = this.probe ? this.#combo(this.combos.extend || EXTEND) : false
+    const extendDown = this.probe && !this.#ignored(this.combos.extend || EXTEND) ? this.#combo(this.combos.extend || EXTEND) : false
     if (this.#edge('extend', extendDown) && this.onExtend) {
       try {
         this.onExtend()
@@ -149,6 +154,34 @@ export class StopBus {
 
   clear() {
     this.stopped = null
+  }
+
+  /**
+   * Stop this bus without firing handlers: kernel.stop() uses it so every stop source
+   * (command, tool, hotkey, signal file) leaves the same state behind.
+   */
+  markStopped(level, by, reason) {
+    this.stopped = { level, by, reason, at: this.now() }
+  }
+
+  /**
+   * Ignore exactly the combo we are about to inject. Blanket suppression would also blind
+   * us to a human pressing Esc/F11 during our own action; matching the injected keys keeps
+   * every other stop live.
+   */
+  ignoreCombo(keys, ms = 500) {
+    const sig = (keys || []).map((key) => String(key).toLowerCase()).sort().join('+')
+    if (!sig) return
+    this.ignored = (this.ignored || []).filter((entry) => entry.until > this.now())
+    this.ignored.push({ sig, until: this.now() + Math.max(0, ms) })
+  }
+
+  #ignored(keys) {
+    const sig = (keys || []).map((key) => String(key).toLowerCase()).sort().join('+')
+    if (!sig) return false
+    const now = this.now()
+    this.ignored = (this.ignored || []).filter((entry) => entry.until > now)
+    return this.ignored.some((entry) => entry.sig === sig)
   }
 
   snapshot() {

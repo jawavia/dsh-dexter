@@ -11,6 +11,7 @@ import { verifyForeground, verifyHash, captureHash, settle } from './verify.js'
 import { describeConfig } from './config.js'
 import { classifyTarget, systemRefusal, sensitiveNote } from './targets.js'
 import { clampInt, hashArgs, redactArgs, shortText } from './util.js'
+import { DEFAULT_COMBOS } from './keys.js'
 
 const COORDINATE_CAPABILITIES = new Set(['click', 'drag', 'scroll', 'type', 'key', 'hotkey'])
 
@@ -37,7 +38,7 @@ export class Kernel {
    * @param {(message:string)=>void} [options.logger]
    * @param {()=>number} [options.clock]
    */
-  constructor({ config, audit, gate, stopbus, human, backends = {}, attachments = null, buttons = null, docsPath = '', logger = () => {}, clock = () => Date.now() } = {}) {
+  constructor({ config, audit, gate, stopbus, human, backends = {}, attachments = null, buttons = null, docsPath = '', combos = null, logger = () => {}, clock = () => Date.now() } = {}) {
     this.config = config
     this.audit = audit
     this.gate = gate
@@ -47,6 +48,8 @@ export class Kernel {
     this.attachments = attachments
     this.buttons = buttons
     this.docsPath = docsPath
+    // The human hotkeys; #reservedCombo refuses to inject them (or Esc).
+    this.reservedCombos = combos || DEFAULT_COMBOS
     this.activity = { kind: 'idle', detail: '', at: 0 }
     this.logger = logger
     this.now = clock
@@ -515,6 +518,20 @@ export class Kernel {
       // per-write question — a session grant never covers the clipboard.
       forceAsk: (target.category === 'sensitive' && this.config.sensitiveAsk) || capability.startsWith('clipboard'),
     })
+    // A stop may land while the approval question is on screen; that decision is stale now.
+    const stoppedWhileAsking = this.#stopDenial()
+    if (stoppedWhileAsking) {
+      this.#writeRow({
+        tool: 'hands_act',
+        capability,
+        decision: 'denied',
+        approval: auth.approval || 'none',
+        reason: 'stopped-during-approval',
+        args,
+        durationMs: this.now() - startedAt,
+      })
+      return { ok: false, text: stoppedWhileAsking }
+    }
     if (!auth.allowed) {
       this.#writeRow({
         tool: 'hands_act',
@@ -544,6 +561,9 @@ export class Kernel {
 
     // Authorized: from here on the panel says what is being injected.
     this.#setActivity('acting', `${capability}${target.label ? ` · ${target.label}` : ''}`)
+    // Ignore exactly the keys this action is about to inject: they land in the global key
+    // state the stop bus polls. Every other stop stays live.
+    this.#ignoreInjectedKeys(capability, args)
     const forceAsk = target.category === 'sensitive' && this.config.sensitiveAsk
     const step = await this.#runOne({
       tool: 'hands_act',
@@ -556,12 +576,49 @@ export class Kernel {
     return { ok: step.ok, text: step.text, imageRef: step.imageRef }
   }
 
-  /** Refusal text when the gate is stopped, otherwise ''. */
+  /** Refusal text when anything is stopped — the gate and the stop bus must agree. */
   #stopDenial() {
     const snapshot = this.gate.snapshot()
-    if (!snapshot.stopped) return ''
-    return `⛔ 急停状态（${snapshot.stopped.level}，by=${snapshot.stopped.by}${snapshot.stopped.reason ? `，${snapshot.stopped.reason}` : ''}）：`
+    const busStop = this.stopbus && this.stopbus.stopped
+    const stopped = snapshot.stopped || busStop
+    if (!stopped) return ''
+    return `⛔ 急停状态（${stopped.level}，by=${stopped.by}${stopped.reason ? `，${stopped.reason}` : ''}）：`
       + '当前没有任何授权，下一次写动作一律拒绝。需要继续时由人手执行 /dexter arm 或按 Ctrl+Alt+F12 重新授权。'
+  }
+
+  /**
+   * An injected key or hotkey must never be one of the human hotkeys: the stop bus reads the
+   * global key state, so injecting "ctrl+alt+f12" would arm the plugin without a human.
+   */
+  #ignoreInjectedKeys(capability, args) {
+    if (!this.stopbus || typeof this.stopbus.ignoreCombo !== 'function') return
+    if (capability !== 'key' && capability !== 'hotkey') return
+    const keys = splitKeys((args && (args.keys ?? args.key)) || [])
+    if (keys.length > 0) this.stopbus.ignoreCombo(keys, 500)
+  }
+
+  /**
+   * An injected key or hotkey must never be one of the human hotkeys: the stop bus reads the
+   * global key state, so injecting "ctrl+alt+f12" would arm the plugin without a human.
+   */
+  #reservedCombo(capability, args) {
+    if (capability !== 'key' && capability !== 'hotkey') return ''
+    const injected = splitKeys(args.keys ?? args.key).map((key) => String(key).toLowerCase())
+    if (injected.length === 0) return ''
+    const wanted = injected.slice().sort().join('+')
+    const combos = this.reservedCombos || {}
+    for (const name of ['arm', 'extend', 'stop', 'softStop']) {
+      const keys = (combos[name] || []).slice().sort().join('+')
+      if (keys && keys === wanted) {
+        return `⛔ 拒绝注入 ${injected.join('+')}：那是人手的${name === 'arm' ? '授权' : name === 'extend' ? '续期' : name === 'stop' ? '硬急停' : '软急停'}热键，`
+          + '注入它等于让模型自己授权。请人类按这个组合。'
+      }
+    }
+    // Esc alone latches a hard stop through the same poller.
+    if (injected.length === 1 && injected[0] === 'esc') {
+      return '⛔ 拒绝注入 esc：那是急停通道（会让整批中断）。'
+    }
+    return ''
   }
 
   #invalidArgument(capability, args) {
@@ -633,6 +690,18 @@ export class Kernel {
   /** One authorized action: route → inject → settle → verify → audit. */
   async #runOne({ tool, capability, args, exec = {}, approval, allowResume = false, sensitiveHandled = false }) {
     const startedAt = this.now()
+    // A stop can land between the batch decision and this step (another source, or the
+    // command), so every step re-checks before touching the desktop.
+    const stoppedNow = this.#stopDenial()
+    if (stoppedNow) {
+      this.#writeRow({ tool, capability, decision: 'denied', approval: 'none', reason: 'stopped-before-step', args, durationMs: this.now() - startedAt })
+      return { ok: false, text: stoppedNow }
+    }
+    const reserved = this.#reservedCombo(capability, args)
+    if (reserved) {
+      this.#writeRow({ tool, capability, decision: 'denied', approval: 'none', reason: 'reserved-hotkey', args, durationMs: this.now() - startedAt })
+      return { ok: false, text: reserved }
+    }
     // Per-step target policy: a batch authorization must never cover a system window,
     // and a sensitive window still needs its own question.
     const target = await this.#classifyForStep(capability, args)
@@ -834,11 +903,19 @@ export class Kernel {
     }
     const idle = await this.human.waitForIdle({ signal: exec.signal })
     if (!idle.ok) return { ok: false, text: `⛔ 人类正在操作（${idle.reason}），整批没有开始。` }
+    const pending = Math.max(1, list.length - (resumeFrom - 1))
     const reason = `批量执行 ${list.length} 步（从第 ${resumeFrom} 步开始）: ${list.slice(resumeFrom - 1, resumeFrom + 2).map((step) => step && step.action).filter(Boolean).join(' → ')}`
-    const auth = await this.gate.authorize({ tool: 'hands_run', capability: 'batch', exec, reason })
+    // One decision covers `pending` injections, so it is charged for all of them: otherwise
+    // a 25-step batch would cost one grant credit and one rate tick.
+    const auth = await this.gate.authorize({ tool: 'hands_run', capability: 'batch', exec, reason, actions: pending })
     if (!auth.allowed) {
       this.#writeRow({ tool: 'hands_run', capability: 'batch', decision: 'denied', approval: 'none', reason: auth.reason, args: { steps: list.length } })
       return { ok: false, text: auth.reason }
+    }
+    const stoppedAfterAsking = this.#stopDenial()
+    if (stoppedAfterAsking) {
+      this.#writeRow({ tool: 'hands_run', capability: 'batch', decision: 'denied', approval: auth.approval || 'none', reason: 'stopped-during-approval', args: { steps: list.length } })
+      return { ok: false, text: stoppedAfterAsking }
     }
     this.runs += 1
     const results = []
@@ -846,8 +923,11 @@ export class Kernel {
     for (let i = resumeFrom - 1; i < list.length; i += 1) {
       const step = list[i] && typeof list[i] === 'object' ? list[i] : {}
       const capability = String(step.action || '').toLowerCase()
-      if (this.stopbus && this.stopbus.stopped) {
-        results.push(`  ${i + 1}. ⛔ 急停（${this.stopbus.stopped.level}）：整批中断`)
+      // Every step re-checks all the stop sources: a command stop, a tool stop, the hotkey
+      // and the signal file must interrupt a batch mid-flight.
+      const stepStop = this.#stopDenial()
+      if (stepStop) {
+        results.push(`  ${i + 1}. ⛔ 急停（${stepStop.replace(/^⛔ 急停状态/, '').slice(0, 40)}）：整批中断`)
         failedAt = i + 1
         break
       }
@@ -857,6 +937,21 @@ export class Kernel {
         if (stopOnError) break
         continue
       }
+      // The batch decision covered the start; the human may have taken the mouse back since.
+      const stepIdle = await this.human.waitForIdle({ signal: exec.signal })
+      if (!stepIdle.ok) {
+        results.push(`  ${i + 1}. ⛔ 人类正在操作（${stepIdle.reason}）：整批中断`)
+        failedAt = i + 1
+        break
+      }
+      const staleStep = this.#freshLookViolation(capability, step)
+      if (staleStep) {
+        results.push(`  ${i + 1}. ⛔ ${staleStep.replace('⛔ ', '')}`)
+        failedAt = i + 1
+        if (stopOnError) break
+        continue
+      }
+      this.#ignoreInjectedKeys(capability, step)
       const stepResult = await this.#runOne({
         tool: 'hands_run',
         capability,
@@ -980,6 +1075,11 @@ export class Kernel {
   stop({ level = 'hard', by = 'human', reason = '' } = {}) {
     this.stoppedAt = this.now()
     const gateStop = this.gate.stop({ level, by, reason })
+    // Every stop source must leave the same state: the command path (`/dexter stop`) used to
+    // stop only the gate, so a running batch kept injecting because it watched the bus.
+    try {
+      this.stopbus?.markStopped?.(level, by, reason)
+    } catch { /* bus optional */ }
     try {
       this.backends.pixel?.abort?.(`dexter-stop:${level}`)
     } catch { /* nothing in flight */ }

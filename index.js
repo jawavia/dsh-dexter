@@ -211,6 +211,9 @@ export function apply(ctx, rawConfig = {}) {
   const approval = getService(ctx, 'approval')
   const gate = new Gate({ config, audit, approval })
   const attachments = getService(ctx, 'attachments')
+  // Parsed once: the stop bus, the hotkey probe and the kernel's reserved-combo check all
+  // read the same values, and the kernel is constructed before the bus.
+  const combos = combosFromConfig(config)
 
   const disposers = []
   let disposed = false
@@ -219,9 +222,8 @@ export function apply(ctx, rawConfig = {}) {
   let hotkeys = null
   let panel = null
   let panelTimer = null
-  const kernel = new Kernel({ config, audit, gate, stopbus: null, human: null, backends, attachments, buttons: null, docsPath: join(HERE, 'docs', 'HANDS.md'), logger })
+  const kernel = new Kernel({ config, audit, gate, stopbus: null, human: null, backends, attachments, buttons: null, docsPath: join(HERE, 'docs', 'HANDS.md'), combos, logger })
 
-  const combos = combosFromConfig(config)
   const stopbus = new StopBus({
     dataDir: dataDir(),
     probe: null,
@@ -235,6 +237,7 @@ export function apply(ctx, rawConfig = {}) {
       const result = gate.openGrant({ minutes: config.armMinutes, actions: config.armActions, source: 'hotkey' })
       if (result.ok) {
         gate.clearStop('human')
+        stopbus.clear()
         logger(`${comboLabel(combos.arm)} 授权：${config.armMinutes} 分钟 / ${config.armActions} 次（频率 ${config.maxActionsPerMinute}/分）`)
       } else {
         logger(`${comboLabel(combos.arm)} 授权失败：${result.error}`)
@@ -474,6 +477,7 @@ export function apply(ctx, rawConfig = {}) {
           }
           if (verbName === 'clear') {
             const cleared = gate.clearStop('human')
+            if (cleared) stopbus.clear()
             return ok(cleared ? '已解除急停标记（授权仍然是空的，需要 /dexter arm 才能动手）。' : '当前没有急停标记。')
           }
           if (verbName === 'panel') {
