@@ -75,11 +75,15 @@ default (per-write asking), and every session carries both bounds plus a rate ca
 1. **No push, no publish, no upload until acceptance is mature.** The repository is
    local-only; `git remote`, `npm publish`, releases and any external upload stay off
    until the human says otherwise, each time (this also restates order §7 / R7).
-2. **Do not install the bundle into the live DSH profile yet.** It would sit next to
+2. **Version control is local-only.** The repository has no remote, no push, no tag
+   push: committing locally is fine (that is how changes stay reviewable), publishing
+   is not. Repo-local identity, no credentials, `local.config.json` and `baseline/local/`
+   are ignored.
+3. **Do not install the bundle into the live DSH profile yet.** It would sit next to
    `dsh-desktop-hands`, and two tool sets + two gates on one desktop is exactly what
    order §8 warns about. Installability is proven structurally and through `apply()`,
    not by switching the human's tooling.
-3. **Authorization stays, but is not sharpened further for now.** The human's model:
+4. **Authorization stays, but is not sharpened further for now.** The human's model:
    the gate only has to cover the tool entry path, not act as a system sandbox. The
    current design already does exactly that (one gate in front of every write; the
    audit is explicitly *not* a security boundary). No redesign was done.

@@ -116,6 +116,25 @@ work around another product's terms or anti-abuse controls. The pixel backend ke
 window deny list (security software, credential managers, system configuration) and
 the kernel refuses to inject while a human is at the keyboard.
 
+## Version control (local only)
+
+The repository is a plain local git repository:
+
+```
+git log --oneline        # a3e143e Initial commit: dsh-dexter v0.1.0 (local-only)
+git tag -l               # v0.1.0
+git remote -v            # empty on purpose — nothing is pushed
+```
+
+- **no remote is configured and nothing is pushed**; that is a standing rule from the
+  human (`DEVIATIONS.md` D11) — publishing / pushing / npm waits for an explicit go;
+- `local.config.json` (the machine wiring) and `baseline/local/` (raw measurements with
+  machine paths) are git-ignored, so the tree stays publishable as-is;
+- the commit identity is repo-local (`dsh-dexter (local) <dexter@localhost>`), not a global
+  git identity, and no credentials are involved;
+- a zip snapshot from before the first commit is kept outside the tree
+  (`..\dsh-dexter-snapshot-20261114-183331.zip`).
+
 ## What is deliberately not here
 
 - no network calls, no telemetry, no uploads;
