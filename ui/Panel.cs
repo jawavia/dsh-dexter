@@ -191,9 +191,16 @@ namespace DshDexterPanel
 
             LoadPosition();
             MouseDown += OnDragStart;
+            MouseMove += OnDragMove;
+            MouseUp += OnDragEnd;
             headline.MouseDown += OnDragStart;
+            headline.MouseMove += OnDragMove;
+            headline.MouseUp += OnDragEnd;
             dot.MouseDown += OnDragStart;
-            hideButton.MouseDown += OnDragStart;
+            dot.MouseMove += OnDragMove;
+            dot.MouseUp += OnDragEnd;
+            // Deliberately NOT on hideButton: the native move loop (WM_NCLBUTTONDOWN) swallows
+            // the mouse-up, so the close label never saw its Click.
             DoubleClick += delegate { ToggleExpanded(); };
             headline.DoubleClick += delegate { ToggleExpanded(); };
             hideButton.Click += delegate { HideToStrip(); };
@@ -238,11 +245,32 @@ namespace DshDexterPanel
             catch { }
         }
 
+        private bool dragging;
+        private Point dragOffset;
+
+        /// <summary>
+        /// Manual drag instead of the native move loop: WM_NCLBUTTONDOWN + HTCAPTION hands
+        /// the mouse to the window manager, which swallows the button-up so child controls
+        /// (the close label) never receive a Click.
+        /// </summary>
         private void OnDragStart(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left) return;
-            ReleaseCapture();
-            SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+            dragging = true;
+            dragOffset = new Point(Cursor.Position.X - Location.X, Cursor.Position.Y - Location.Y);
+        }
+
+        private void OnDragMove(object sender, MouseEventArgs e)
+        {
+            if (!dragging) return;
+            Location = new Point(Cursor.Position.X - dragOffset.X, Cursor.Position.Y - dragOffset.Y);
+        }
+
+        private void OnDragEnd(object sender, MouseEventArgs e)
+        {
+            if (!dragging) return;
+            dragging = false;
+            ClampIntoWorkingArea();
             SavePosition();
         }
 
