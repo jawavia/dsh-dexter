@@ -58,6 +58,19 @@ report.ge('A6 key count', keys.length, 10)
 report.ok('A6 every key declares a type and a default', keys.every((key) => FIELD_SPEC[key].type && Object.hasOwn(FIELD_SPEC[key], 'default')))
 report.eq('A6 normalizeConfig({}) equals DEFAULTS', normalizeConfig({}), { ...DEFAULTS })
 
+// The settings page only exists if the plugin's exported Config resolves schemastery. A
+// bare import used to fail in a linked checkout, so DSH showed no settings UI at all.
+const pluginModule = await import(new URL('../index.js', import.meta.url).href)
+report.ok('the plugin exports a Config schema (settings page)', Boolean(pluginModule.Config))
+if (pluginModule.Config) {
+  const dict = typeof pluginModule.Config.dict === 'object' ? pluginModule.Config.dict : null
+  const keys = dict ? Object.keys(dict) : []
+  report.ok('the schema carries every editable key', keys.length >= Object.keys(FIELD_SPEC).length, `${keys.length} fields`)
+  for (const key of ['armMinutes', 'armActions', 'maxActionsPerMinute']) {
+    report.ok(`the settings page shows ${key}`, keys.includes(key))
+  }
+}
+
 const schema = buildSchema(fakeZ())
 const declaredDefaults = Object.fromEntries(Object.entries(schema.shape).map(([key, node]) => [key, node.meta.default]))
 report.eq('A6 schema defaults equal runtime defaults', declaredDefaults, { ...DEFAULTS })

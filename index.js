@@ -33,14 +33,32 @@ import { buildDefinitions } from './tools/definitions.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
-/** Schemastery is part of the host; a bare `node` run of the tests has none. */
+/**
+ * Schemastery builds the settings page. Resolve it in this order:
+ *   1. the host's own copy (a bare specifier, what a real profile provides);
+ *   2. the vendored copy that ships with the pixel engine (`vendor/pixel/node_modules`),
+ *      so a linked checkout without a node_modules at its root still gets a settings page.
+ * Without either, Config stays undefined and DSH shows no settings UI at all — which is
+ * why it looked like "there is no settings page".
+ */
 let Config
-try {
-  const schemastery = await import('@deepseek-ai/schemastery')
-  const z = schemastery.default ?? schemastery
-  if (z && typeof z.object === 'function') Config = buildSchema(z)
-} catch {
-  Config = undefined
+{
+  const candidates = [
+    '@deepseek-ai/schemastery',
+    './vendor/pixel/node_modules/@deepseek-ai/schemastery/lib/index.mjs',
+  ]
+  for (const candidate of candidates) {
+    try {
+      const loaded = candidate.startsWith('.')
+        ? await import(new URL(candidate, import.meta.url).href)
+        : await import(candidate)
+      const z = loaded.default ?? loaded
+      if (z && typeof z.object === 'function') {
+        Config = buildSchema(z)
+        break
+      }
+    } catch { /* try the next candidate */ }
+  }
 }
 
 function readVersion() {
