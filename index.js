@@ -441,7 +441,9 @@ export function apply(ctx, rawConfig = {}) {
           // A bare string is rejected with "command handler must return a CommandResult".
           const ok = (text) => ({ kind: 'success', text: String(text) })
           const bad = (text) => ({ kind: 'error', text: String(text) })
-          const raw = String((invocation && (invocation.input ?? invocation.args ?? invocation.text)) ?? '').trim()
+          // The gateway hands the text after the command name as `rawInput`; older shapes
+          // carried `input`/`args`/`text`, so keep those as fallbacks.
+          const raw = String((invocation && (invocation.rawInput ?? invocation.input ?? invocation.args ?? invocation.text)) ?? '').trim()
           const [verb, a, b] = raw.split(/\s+/)
           const verbName = (verb || 'status').toLowerCase()
           if (verbName === 'status' || verbName === '') {
