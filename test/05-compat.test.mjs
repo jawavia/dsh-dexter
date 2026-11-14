@@ -54,6 +54,12 @@ const backend = { foreground: () => ({ handle: 1, title: 'Notepad', process: 'no
 report.ok('verify: matching expect passes', verifyForeground({ expect: { titleContains: 'pad' }, backend }).ok)
 report.ok('verify: mismatching title fails', verifyForeground({ expect: { titleContains: 'chrome' }, backend }).ok === false)
 report.ok('verify: mismatching process fails', verifyForeground({ expect: { process: 'chrome.exe' }, backend }).ok === false)
+// Notepad reports the display name "Notepad" in some backends and "notepad.exe" in others.
+const displayNameBackend = { foreground: () => ({ handle: 1, title: 'x - Notepad', process: 'Notepad', pid: 10 }) }
+report.ok('verify: display name matches image name', verifyForeground({ expect: { process: 'notepad.exe' }, backend: displayNameBackend }).ok)
+report.ok('verify: image name matches image name', verifyForeground({ expect: { process: 'notepad.exe' }, backend }).ok)
+const anonymousBackend = { foreground: () => ({ handle: 1, title: 'x', pid: 10 }) }
+report.ok('verify: unknown process is not a silent pass', verifyForeground({ expect: { process: 'notepad.exe' }, backend: anonymousBackend }).ok === false)
 report.ok('verify: no expect is not a failure', verifyForeground({ expect: undefined, backend }).ok)
 report.ok('verify: identical hash is a mismatch', verifyHash({ before: 'aa', after: 'aa' }).ok === false)
 report.ok('verify: changed hash passes', verifyHash({ before: 'aa', after: 'bb' }).ok)

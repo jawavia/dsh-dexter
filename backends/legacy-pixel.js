@@ -63,6 +63,10 @@ const TOOL_MENTION_REWRITES = [
 function rewriteToolMentions(text) {
   let out = String(text ?? '')
   for (const [pattern, replacement] of TOOL_MENTION_REWRITES) out = out.replace(pattern, replacement)
+  // The engine reports its own per-call arm counter ("授权状态: 剩 N 次"), which is not the
+  // kernel's session budget and reads alarming right after a single action. The kernel
+  // reports the real remaining count in hands_status, so drop this line here.
+  out = out.replace(/^\s*授权状态[:：].*$\n?/gm, '')
   return out
 }
 

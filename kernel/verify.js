@@ -42,8 +42,14 @@ export function verifyForeground({ expect, backend } = {}) {
       process = norm(foreground.process || '')
       if (!process && typeof backend.processNameOf === 'function') process = norm(backend.processNameOf(foreground.pid))
     } catch { /* process name is best effort */ }
-    if (process && !process.includes(norm(expect.process))) {
+    // Compare "notepad.exe" with "Notepad": some backends report the application display
+    // name, others the image name, so strip the extension and compare both ways.
+    const base = (value) => norm(value).replace(/\.exe$/, '')
+    if (process && !base(process).includes(base(expect.process)) && !norm(process).includes(norm(expect.process))) {
       return { mode: 'foreground', ok: false, detail: `前台进程「${process}」不是「${expect.process}」` }
+    }
+    if (!process) {
+      return { mode: 'foreground', ok: false, detail: `无法确认前台进程（expect ${expect.process}），按未验证处理` }
     }
   }
   return { mode: 'foreground', ok: true, detail: `前台窗口符合 expect（${foreground.title || foreground.handle}）` }
