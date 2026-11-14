@@ -25,6 +25,7 @@ import { createPixelBackend } from './backends/legacy-pixel.js'
 import { createToyDrawer } from './backends/toy-draw.js'
 import { createButtonProbe } from './backends/win-probe.js'
 import { createHotkeyProbe } from './backends/hotkey-probe.js'
+import { createPanel } from './kernel/panel.js'
 import { combosFromConfig, comboLabel } from './kernel/keys.js'
 import { createUiaBackend } from './backends/legacy-uia.js'
 import { describeEngines } from './backends/resolve.js'
@@ -206,6 +207,8 @@ export function apply(ctx, rawConfig = {}) {
 
   const backends = { pixel: null, uia: null, toy: null }
   let hotkeys = null
+  let panel = null
+  let panelTimer = null
   const kernel = new Kernel({ config, audit, gate, stopbus: null, human: null, backends, attachments, buttons: null, docsPath: join(HERE, 'docs', 'HANDS.md'), logger })
 
   const combos = combosFromConfig(config)
@@ -280,6 +283,31 @@ export function apply(ctx, rawConfig = {}) {
     } else {
       logger(`legacy-uia 不可用，热键/人类暂停检测关闭：${backends.uia ? backends.uia.reason : '未加载'}`)
     }
+    // Desktop panel: the page cannot help once another app covers the DSH window, so the
+    // state lives in a topmost native strip fed by a two-line file.
+    if (config.panelEnabled) {
+      panel = createPanel({ dataDir: dataDir(), logger })
+      const started = panel.start()
+      if (started.ok) {
+        const paint = () => {
+          try {
+            const snapshot = kernel.status({ tail: 1 })
+            const grant = snapshot.gate && snapshot.gate.grant
+            const head = grant && grant.active
+              ? `● hands · 授权 ${Math.max(0, Math.round(grant.remainingMs / 60000))} 分钟 / ${Math.max(0, grant.actions - grant.used)} 次`
+              : '● hands · 未授权（逐次请示）'
+            const last = Array.isArray(snapshot.recent) && snapshot.recent.length > 0 ? snapshot.recent[snapshot.recent.length - 1] : null
+            const detail = last
+              ? `${last.tool || ''} ${last.capability || ''} → ${last.decision || ''}${last.result ? ` (${last.result})` : ''}`
+              : '双击展开 · 右键菜单 · 拖动移动'
+            panel.writeState(head, detail)
+          } catch { /* the panel keeps its last text */ }
+        }
+        paint()
+        panelTimer = setInterval(paint, 1000)
+        if (panelTimer && typeof panelTimer.unref === 'function') panelTimer.unref()
+      }
+    }
     audit.append({
       tool: 'plugin',
       capability: 'backends',
@@ -352,6 +380,16 @@ export function apply(ctx, rawConfig = {}) {
           }
           stopbus.stop()
           human.dispose()
+          if (panelTimer) {
+            clearInterval(panelTimer)
+            panelTimer = null
+          }
+          if (panel) {
+            try {
+              panel.stop()
+            } catch { /* panel already gone */ }
+            panel = null
+          }
           // Order matters: the pixel helper is a detached GUI process that holds the
           // global hotkeys. Leaving it behind is what made "clicks stopped working"
           // after a plugin reload (it owns Ctrl+Alt+F11, so the next helper cannot
@@ -438,6 +476,16 @@ export function apply(ctx, rawConfig = {}) {
     }
     stopbus.stop()
     human.dispose()
+    if (panelTimer) {
+      clearInterval(panelTimer)
+      panelTimer = null
+    }
+    if (panel) {
+      try {
+        panel.stop()
+      } catch { /* panel already gone */ }
+      panel = null
+    }
     // Same reason as the effect cleanup above: never leave the helper (and its claimed
     // global hotkeys) behind when this plugin goes away.
     try {

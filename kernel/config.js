@@ -85,6 +85,11 @@ export const FIELD_SPEC = Object.freeze({
     default: 'ctrl+shift+f11',
     desc: 'Soft stop: finish the current step, then stop.',
   },
+  panelEnabled: {
+    type: 'bool',
+    default: true,
+    desc: 'Show the always-on-top desktop panel (compiled once with the in-box csc). It stays outside the DSH window and clamps to the working area, so it never covers the taskbar.',
+  },
   pauseOnHumanInput: {
     type: 'bool',
     default: true,

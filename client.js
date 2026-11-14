@@ -83,7 +83,7 @@ window.__ModuleLoader__.load({
         if (Number.isFinite(stored.x) && Number.isFinite(stored.y)) return clamp({ x: stored.x, y: stored.y })
         return defaultPosition()
       })
-      const [hidden, setHidden] = React.useState(stored.hidden === true)
+      const [hidden, setHidden] = React.useState(stored.hidden === undefined ? true : stored.hidden === true)
       const [open, setOpen] = React.useState(false)
       const [drag, setDrag] = React.useState(null)
       const posRef = React.useRef(pos)

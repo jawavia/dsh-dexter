@@ -103,6 +103,24 @@ editing code (DEVIATIONS.md D12).
 
 `/dexter status | arm [45m] [300] | extend | stop | clear`
 
+## Desktop panel
+
+A small always-on-top strip that lives **outside** the DSH window, so it survives another
+application covering the chat (`panelEnabled`, default on):
+
+- **drag** it anywhere; **×** hides it to a 14 px tab on the right screen edge, click the
+  tab to bring it back; **double-click** expands the detail line; **right-click** opens
+  *Reset to top-right · Toggle click-through · Exit panel*;
+- it clamps itself to `Screen.WorkingArea`, which **excludes the taskbar**, so it cannot
+  cover it — the old helper pill did, because it positioned itself against the full screen;
+- position is kept in `~/.dsh/dexter/panel-pos.txt`; the text comes from
+  `~/.dsh/dexter/state.txt` (refreshed every second from the audit/gate state);
+- it is a separate `Panel.exe`, compiled once with the in-box `csc` into
+  `~/.dsh/dexter/panel/`; disabling the plugin reaps it (verified 1 → 0). If it ever
+  lingers: `Get-Process Panel | Stop-Process -Force`;
+- the in-page Web chip (`client.js`) still exists for when the page is focused, but it
+  starts hidden — inside the window it can always be covered.
+
 ## Allowed and not allowed uses
 
 **Intended:** personal desktop automation / RPA on a machine you own and are sitting
