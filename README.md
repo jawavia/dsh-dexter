@@ -122,9 +122,25 @@ application covering the chat (`panelEnabled`, default on):
   `~/.dsh/dexter/panel/`; disabling the plugin reaps it (verified 1 → 0). If it ever
   lingers: `Get-Process Panel | Stop-Process -Force`;
 - `/dexter panel show|hide|reset|exit` writes a one-shot command the panel polls — useful
-  when the pointer is busy somewhere else;
-- there is **no Web-side widget**: an element inside the page disappears the moment another
-  window covers the chat, which is exactly the case a status strip exists for.
+  when the pointer is busy somewhere else; `show` also restarts the process when it was
+  closed (the tray's *Exit panel*, or the window being closed), so the strip is never
+  unreachable until a reload;
+- it is a **tool window** (`WS_EX_TOOLWINDOW` + `WS_EX_NOACTIVATE`): no taskbar button, no
+  Alt+Tab entry, and clicking it never takes focus from the app being driven.
+
+### Two buttons beside the composer
+
+`client.js` contributes a small row to `conversation.composer.dock`:
+
+| Button | Effect |
+|---|---|
+| 授权 | sends `/dexter arm 15m 100` (one click + no typing; the human still presses it) |
+| 面板 | sends `/dexter panel show` |
+
+They go through the documented `InputActions` facet (`captureInsertion` / `insertText` /
+`setDraft` / `submit`) — nothing here can grant authority by itself, since the click is the
+human's and the host command opens the grant. Client modules only load with the page, so a
+DSH restart is needed before a rewritten `client.js` shows up.
 
 ## Allowed and not allowed uses
 

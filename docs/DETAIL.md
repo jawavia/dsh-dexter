@@ -48,6 +48,18 @@ approval、result、verify、argsHash、durationMs；`forwarded` 行是原引擎
 `mode:"toy"` 标记玩具笔画。审计**不是**安全边界（key-less 链，只能发现"被人改过一行"，
 挡不住整文件重写）。
 
+## 桌面面板与界面
+
+- **桌面小条**（`ui/Panel.cs` → 系统自带 `csc` 编译成 `Panel.exe`，进程独立）：置顶、不抢焦点
+  （`WS_EX_NOACTIVATE`）、不占任务栏也不进 Alt+Tab（`WS_EX_TOOLWINDOW`）、按 `Screen.WorkingArea`
+  夹住所以**压不到任务栏**；可拖、`×` 缩成右边 14px 竖条、双击展开、右键/托盘同一套中文菜单；
+  位置存 `panel-pos.txt`，文字每秒从插件写入的 `state.txt` 读取（第一行状态、第二行"在看/在操作/在等待"）；
+  `panel.ensure()` 会在进程被关掉后重新拉起（`/dexter panel show` 调用它）。
+- **输入框旁两个按钮**（`client.js` → `conversation.composer.dock`）：`授权` 发送 `/dexter arm 15m 100`，
+  `面板` 发送 `/dexter panel show`。都走 `InputActions`（`captureInsertion`/`insertText`/`setDraft`/`submit`），
+  按钮本身不授予任何权限——按下去的是人，真正开授权的是 `/dexter arm`。
+- **没有页内悬浮件**：页面元素一旦被别的窗口盖住就没了，那正是状态条要解决的场景，所以状态只放在桌面小条上。
+
 ## 已知限制
 
 - Windows-only（`os: win32`），依赖原引擎存在才能注入；
