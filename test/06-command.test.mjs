@@ -44,6 +44,11 @@ try {
     report.ok('legacy `input` shape still works', legacy && legacy.kind === 'success')
     report.ok('empty invocation means status', (await command.handler({})).kind === 'success')
 
+    // `/dexter arm` with no numbers must fall back to the configured defaults: a module-level
+    // helper once referenced the plugin-scope `live` and threw "live is not defined".
+    const bareArm = await command.handler({ rawInput: 'arm' })
+    report.ok('arm without numbers uses the defaults', bareArm.kind === 'success' && bareArm.text.includes('分钟内最多'), bareArm.text.slice(0, 80))
+
     // `/dexter set` validates every key. The three tunable numbers go to the runtime-override
     // layer (the host editor refuses a nested include); other keys go to the host editor.
     const setOk = await command.handler({ rawInput: 'set armMinutes 30' })

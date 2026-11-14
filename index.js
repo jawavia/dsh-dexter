@@ -204,7 +204,14 @@ function parseConfigValue(spec, raw) {
   return { value: text }
 }
 
-function parseArmArgs(first, second, config) {
+/**
+ * Parse `/dexter arm [45m] [300]`.
+ * `live` is optional so this module-level helper never reaches into the plugin scope (a
+ * ReferenceError there broke `/dexter arm` with no arguments): callers pass the live accessor
+ * for the volatile numbers, or the snapshot is used as the fallback.
+ */
+function parseArmArgs(first, second, config, live = null) {
+  const current = (key, fallback) => (typeof live === 'function' ? live(key) : fallback)
   const read = (token, kind) => {
     if (token === undefined || token === '') return null
     const text = String(token).trim().toLowerCase()
@@ -227,8 +234,8 @@ function parseArmArgs(first, second, config) {
   if (given.length > 0 && parsedFirst === null && parsedSecond === null) {
     return { error: `看不懂的参数：${given.join(' ')}。用法：/dexter arm [45m] [300]` }
   }
-  const minutes = (parsedFirst && parsedFirst.minutes) || (parsedSecond && parsedSecond.minutes) || live('armMinutes')
-  const actions = (parsedSecond && parsedSecond.actions) || (parsedFirst && parsedFirst.actions) || live('armActions')
+  const minutes = (parsedFirst && parsedFirst.minutes) || (parsedSecond && parsedSecond.minutes) || current('armMinutes', config.armMinutes)
+  const actions = (parsedSecond && parsedSecond.actions) || (parsedFirst && parsedFirst.actions) || current('armActions', config.armActions)
   if (minutes < 1 || actions < 1) return { error: '时长和次数都要 > 0。' }
   return { minutes, actions }
 }
@@ -590,7 +597,7 @@ export function apply(ctx, rawConfig = {}) {
             return ok(commandStatus())
           }
           if (verbName === 'arm' || verbName === 'latch') {
-            const parsed = parseArmArgs(a, b, config)
+            const parsed = parseArmArgs(a, b, config, live)
             if (parsed.error) return bad(parsed.error)
             const result = gate.openGrant({ minutes: parsed.minutes, actions: parsed.actions, source: 'command' })
             if (!result.ok) return bad(`授权失败：${result.error}`)
