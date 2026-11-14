@@ -302,9 +302,13 @@ export function apply(ctx, rawConfig = {}) {
               : grant && grant.active
                 ? `● hands · 授权 ${Math.max(0, Math.round(grant.remainingMs / 60000))} 分钟 / ${Math.max(0, grant.actions - grant.used)} 次`
                 : '● hands · 未授权（逐次请示）'
-            // Second line answers "what is it doing with the mouse right now".
-            const activity = snapshot.activity || '空闲'
-            panel.writeState(head, activity)
+            // Second line answers "what is it doing with the mouse right now"; when it is
+            // idle and unauthorized it says how to authorize, in the panel itself, so the
+            // human does not have to remember a command or find a page button.
+            const idle = snapshot.activity && snapshot.activity !== '空闲'
+              ? snapshot.activity
+              : (grant && grant.active ? '空闲' : stopped ? '已急停 · /dexter clear 解除' : `未授权 · 按 ${comboLabel(combos.arm)} 授权`)
+            panel.writeState(head, idle)
           } catch { /* the panel keeps its last text */ }
         }
         paint()
