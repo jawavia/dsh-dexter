@@ -114,6 +114,9 @@ namespace DshDexterPanel
             statePath = Path.Combine(dir, "state.txt");
             posPath = Path.Combine(dir, "panel-pos.txt");
             stopPath = Path.Combine(dir, "panel.stop");
+            // Before any menu is built: the label file must be read first, or the menus keep
+            // the English defaults.
+            LoadLabels();
 
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.Manual;
@@ -187,7 +190,6 @@ namespace DshDexterPanel
             tray.DoubleClick += delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); };
 
             LoadPosition();
-            LoadLabels();
             MouseDown += OnDragStart;
             headline.MouseDown += OnDragStart;
             dot.MouseDown += OnDragStart;
@@ -227,6 +229,11 @@ namespace DshDexterPanel
                     else if (key == "exit") labelExit = value;
                     else if (key == "tray") labelTray = value;
                 }
+                // Diagnostic: what the menus actually got, so a test can prove the Chinese
+                // labels reached the window instead of guessing from a screenshot.
+                File.WriteAllText(Path.Combine(dir, "labels-loaded.txt"),
+                    "reset=" + labelReset + "\ntoggle=" + labelToggle + "\nexit=" + labelExit + "\ntray=" + labelTray + "\n",
+                    new UTF8Encoding(false));
             }
             catch { }
         }

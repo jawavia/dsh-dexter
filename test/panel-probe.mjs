@@ -14,7 +14,9 @@ import { createPanel } from '../kernel/panel.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
-const dataDir = join(process.env.USERPROFILE || process.env.HOME || '', '.dsh', 'dexter')
+// A dedicated probe directory: the live plugin's panel must not be disturbed, because the
+// stop path is shared through the data dir.
+const dataDir = join(process.env.LOCALAPPDATA || process.env.USERPROFILE || '', 'dsh-dexter-probe')
 const panel = createPanel({ dataDir, logger: (line) => console.log('[panel]', line) })
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
 const ps = (args) => execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args], { encoding: 'utf8', windowsHide: true }).trim()
@@ -43,6 +45,9 @@ const inside = rect.length === 4 && rect[0] >= wl && rect[1] >= wt && rect[2] <=
 const visibleOk = Boolean(visible)
 
 const state = existsSync(panel.paths.statePath) ? readFileSync(panel.paths.statePath, 'utf8').trim().split('\n') : []
+const labels = existsSync(join(dataDir, 'labels-loaded.txt')) ? readFileSync(join(dataDir, 'labels-loaded.txt'), 'utf8') : ''
+const labelsOk = labels.includes('复位到右上角') && labels.includes('退出面板')
+console.log('labels loaded into the panel:', labelsOk)
 console.log('state file lines:', state)
 
 // Click-through was removed on purpose: the strip is small and draggable, so it must always
@@ -61,11 +66,12 @@ console.log(`click-through: before=${before} afterCommand=${afterCommand} (both 
 
 panel.stop()
 await sleep(2000)
-const after = Number(ps(['-Command', '(Get-Process Panel -ErrorAction SilentlyContinue | Measure-Object).Count']))
-console.log('panel processes after stop:', after)
+// Only the instance this probe started: the live plugin keeps its own panel.
+const after = Number(ps(['-Command', `(Get-Process -Id ${pid} -ErrorAction SilentlyContinue | Measure-Object).Count`]))
+console.log('probe panel processes after stop:', after)
 
 const alwaysClickable = before === false && afterCommand === false
-const ok = start.ok && pid > 0 && visibleOk && topmost && inside && alwaysClickable && after === 0
+const ok = start.ok && pid > 0 && visibleOk && topmost && inside && alwaysClickable && labelsOk && after === 0
 console.log(`checks: visible=${visibleOk} topmost=${topmost} insideWorkingArea=${inside} alwaysClickable=${alwaysClickable} reaped=${after === 0}`)
 console.log(ok ? 'panel: OK' : 'panel: FAILED')
 process.exit(ok ? 0 : 1)
