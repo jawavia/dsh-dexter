@@ -2,7 +2,10 @@
 local.config.json
 baseline/local/
 evidence/local/
-node_modules/
+# Only the repository's own install directory is ignored. The vendored engines carry their
+# own node_modules (koffi's native module, schemastery) and those MUST be committed, or the
+# "no prerequisites" install breaks after a clone.
+/node_modules/
 *.log
 *.zip
 *.tmp
