@@ -72,6 +72,7 @@ namespace DshDexterPanel
         private readonly Label detail;
         private readonly Label hideButton;
         private readonly ContextMenuStrip menu;
+        private readonly NotifyIcon tray;
 
         private bool expanded;
         private bool clickThrough;
@@ -141,8 +142,24 @@ namespace DshDexterPanel
             menu = new ContextMenuStrip();
             menu.Items.Add("Reset to top-right", null, delegate { ResetPosition(); });
             menu.Items.Add("Toggle click-through", null, delegate { SetClickThrough(!clickThrough); });
+            menu.Items.Add("Show / hide panel", null, delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); });
             menu.Items.Add("Exit panel", null, delegate { Close(); });
             ContextMenuStrip = menu;
+
+            // The escape hatch: once the panel is click-through, its own context menu cannot
+            // open, so the tray icon carries the same menu and is always hittable.
+            tray = new NotifyIcon();
+            tray.Icon = SystemIcons.Application;
+            tray.Text = "dsh-dexter";
+            tray.Visible = true;
+            ContextMenuStrip trayMenu = new ContextMenuStrip();
+            trayMenu.Items.Add("Show / hide panel", null, delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); });
+            trayMenu.Items.Add("Turn click-through off", null, delegate { SetClickThrough(false); });
+            trayMenu.Items.Add("Turn click-through on", null, delegate { SetClickThrough(true); });
+            trayMenu.Items.Add("Reset to top-right", null, delegate { ResetPosition(); });
+            trayMenu.Items.Add("Exit panel", null, delegate { Close(); });
+            tray.ContextMenuStrip = trayMenu;
+            tray.DoubleClick += delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); };
 
             LoadPosition();
             MouseDown += OnDragStart;
@@ -229,6 +246,18 @@ namespace DshDexterPanel
             int next = on ? (style | WS_EX_TRANSPARENT) : (style & ~WS_EX_TRANSPARENT);
             SetWindowLong(Handle, GWL_EXSTYLE, next);
             menu.Items[1].Text = on ? "Disable click-through" : "Enable click-through";
+            try
+            {
+                if (on)
+                {
+                    // Say it out loud once: the panel is now transparent to the mouse, so the
+                    // way back is the tray icon (or `/dexter panel through off`).
+                    tray.ShowBalloonTip(3000, "dsh-dexter panel",
+                        "Click-through is ON. Use the tray icon menu, or /dexter panel through off, to turn it off.",
+                        ToolTipIcon.Info);
+                }
+            }
+            catch { }
         }
 
         private void LoadPosition()
@@ -279,8 +308,46 @@ namespace DshDexterPanel
                         if (body.Length > 0) detail.Text = body;
                     }
                 }
+                RunCommand();
             }
             catch { }
+        }
+
+        /// <summary>
+        /// One-shot commands written by the plugin (`cmd.txt`): the second way back from
+        /// click-through, since the panel's own menu is unreachable while it is transparent.
+        /// </summary>
+        private void RunCommand()
+        {
+            string cmdPath = Path.Combine(dir, "cmd.txt");
+            if (!File.Exists(cmdPath)) return;
+            string command = "";
+            try
+            {
+                command = File.ReadAllText(cmdPath, Encoding.UTF8).Trim().ToLowerInvariant();
+            }
+            catch { }
+            try { File.Delete(cmdPath); } catch { }
+            if (command == "through-off") SetClickThrough(false);
+            else if (command == "through-on") SetClickThrough(true);
+            else if (command == "through-toggle") SetClickThrough(!clickThrough);
+            else if (command == "show") ShowFromStrip();
+            else if (command == "hide") HideToStrip();
+            else if (command == "reset") ResetPosition();
+            else if (command == "exit") Close();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                try
+                {
+                    if (tray != null) { tray.Visible = false; tray.Dispose(); }
+                }
+                catch { }
+            }
+            base.Dispose(disposing);
         }
 
         protected override void OnResize(EventArgs e)

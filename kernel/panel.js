@@ -141,9 +141,21 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
     }
   }
 
+  /** One-shot command for the panel: the escape hatch when it is click-through. */
+  function command(name) {
+    try {
+      mkdirSync(dataDir, { recursive: true })
+      writeFileSync(join(dataDir, 'cmd.txt'), `${String(name)}\n`, 'utf8')
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: error && error.message ? error.message : String(error) }
+    }
+  }
+
   return {
     start,
     stop,
+    command,
     writeState,
     get running() {
       return started
