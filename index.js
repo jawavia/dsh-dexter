@@ -377,11 +377,64 @@ export function apply(ctx, rawConfig = {}) {
             const idle = snapshot.activity && snapshot.activity !== '空闲'
               ? snapshot.activity
               : (grant && grant.active ? '空闲' : stopped ? '已急停 · /dexter clear 解除' : `未授权 · 按 ${comboLabel(combos.arm)} 授权`)
-            panel.writeState(head, idle)
+            // Third line: the three numbers. The panel can adjust them from its menu (it cannot
+            // write configuration itself), so this is also the feedback for that request.
+            const settingsLine = `时长 ${live('armMinutes')} 分 · 次数 ${live('armActions')} · 频率 ${live('maxActionsPerMinute')}/分`
+            panel.writeState(head, idle, settingsLine)
           } catch { /* the panel keeps its last text */ }
         }
+
+        /**
+         * Apply configuration requests the panel left behind. The panel is a separate process,
+         * so it cannot call the config editor: it writes `cfg <key> <±n>` and this loop does
+         * the validated write, one request per tick.
+         */
+        let applyingPanelRequest = false
+        const applyPanelRequests = async () => {
+          if (applyingPanelRequest || !panel || typeof panel.readRequests !== 'function') return
+          let requests = []
+          try {
+            requests = panel.readRequests()
+          } catch {
+            return
+          }
+          if (requests.length === 0) return
+          applyingPanelRequest = true
+          try {
+            const entry = ctx && ctx.fiber ? ctx.fiber.entry : undefined
+            const editor = getService(ctx, 'configEditor')
+            for (const line of requests) {
+              const request = panel.parseRequest(line)
+              if (!request) continue
+              const changes = request.reset
+                ? [['armMinutes', DEFAULTS.armMinutes], ['armActions', DEFAULTS.armActions], ['maxActionsPerMinute', DEFAULTS.maxActionsPerMinute]]
+                : [[request.key, panel.nextValue(live(request.key), request.delta, fieldSpec(request.key))]]
+              if (!editor || typeof editor.edit !== 'function' || !entry) {
+                audit.append({ tool: 'panel', capability: 'config', decision: 'denied', approval: 'none', reason: 'no-config-editor', result: changes.map(([key, value]) => `${key}=${value}`).join(' ') })
+                continue
+              }
+              try {
+                const next = await editor.edit(entry, (current) => {
+                  const merged = { ...(current || {}) }
+                  for (const [key, value] of changes) merged[key] = value
+                  return merged
+                })
+                const applied = changes.map(([key, value]) => `${key}=${next && Object.hasOwn(next, key) ? next[key] : value}`).join(' ')
+                audit.append({ tool: 'panel', capability: 'config', decision: 'set', approval: 'none', result: applied })
+              } catch (error) {
+                audit.append({ tool: 'panel', capability: 'config', decision: 'error', approval: 'none', reason: String(error && error.message ? error.message : error) })
+              }
+            }
+          } finally {
+            applyingPanelRequest = false
+            paint()
+          }
+        }
         paint()
-        panelTimer = setInterval(paint, 1000)
+        panelTimer = setInterval(() => {
+          paint()
+          void applyPanelRequests()
+        }, 1000)
         if (panelTimer && typeof panelTimer.unref === 'function') panelTimer.unref()
       }
     }

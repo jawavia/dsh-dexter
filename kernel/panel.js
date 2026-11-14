@@ -11,7 +11,7 @@
  * DSH window being covered, and its crash must not take the plugin down.
  */
 import { execFileSync, spawnSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -64,6 +64,15 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
     toggle: '显示 / 隐藏面板',
     exit: '退出面板',
     tray: 'dsh-dexter 桌面面板',
+    // The three tunable numbers live on the panel because DSH has no generic plugin form.
+    cfgTitle: '设置',
+    cfgMinutesUp: '授权时长 +5 分',
+    cfgMinutesDown: '授权时长 −5 分',
+    cfgActionsUp: '授权次数 +50',
+    cfgActionsDown: '授权次数 −50',
+    cfgRateUp: '每分钟上限 +10',
+    cfgRateDown: '每分钟上限 −10',
+    cfgReset: '恢复默认 15/100/30',
   }
 
   function writeLabels() {
@@ -76,14 +85,51 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
     }
   }
 
-  /** One or two lines: headline, optional detail. The panel shows them as-is. */
-  function writeState(headline, detail = '') {
+  /** Three lines: headline, activity, settings. The panel shows them as-is. */
+  function writeState(headline, detail = '', settings = '') {
     try {
       mkdirSync(dataDir, { recursive: true })
-      writeFileSync(statePath, `${String(headline)}\n${String(detail)}\n`, 'utf8')
+      writeFileSync(statePath, `${String(headline)}\n${String(detail)}\n${String(settings)}\n`, 'utf8')
     } catch (error) {
       logger(`状态写入失败: ${error && error.message ? error.message : error}`)
     }
+  }
+
+  /**
+   * The panel cannot edit configuration by itself (it is a separate process), so it leaves a
+   * request here and the plugin applies it through the same validator `/dexter set` uses.
+   * Reading consumes the file, so a request is applied once.
+   */
+  function readRequests() {
+    const file = join(dataDir, 'panel-requests.txt')
+    try {
+      if (!existsSync(file)) return []
+      const text = readFileSync(file, 'utf8')
+      rmSync(file, { force: true })
+      return text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    } catch {
+      return []
+    }
+  }
+
+  /** `cfg armMinutes +5` → `{ key: 'armMinutes', delta: 5 }` (also `cfg reset`). */
+  function parseRequest(line) {
+    const text = String(line || '').trim()
+    if (text === '' || !text.startsWith('cfg')) return null
+    const parts = text.split(/\s+/)
+    if (parts[1] === 'reset') return { reset: true }
+    const key = parts[1]
+    const delta = Number(parts[2])
+    if (!key || !Number.isFinite(delta) || delta === 0) return null
+    return { key, delta: Math.trunc(delta) }
+  }
+
+  /** Clamp a requested change into the field's own range. */
+  function nextValue(current, delta, spec) {
+    const min = spec && Number.isFinite(spec.min) ? spec.min : 0
+    const max = spec && Number.isFinite(spec.max) ? spec.max : Number.MAX_SAFE_INTEGER
+    const base = Number.isFinite(Number(current)) ? Number(current) : min
+    return Math.min(max, Math.max(min, base + delta))
   }
 
   /** Windows whose command line names this data dir (a panel from an earlier instance). */
@@ -223,11 +269,15 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
     ensure,
     command,
     writeState,
+    writeLabels,
+    readRequests,
+    parseRequest,
+    nextValue,
     get running() {
       return started && isAlive()
     },
     get paths() {
-      return { exe, statePath, stopPath }
+      return { exe, statePath, stopPath, requestsPath: join(dataDir, 'panel-requests.txt') }
     },
   }
 }

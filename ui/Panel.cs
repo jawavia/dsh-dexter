@@ -97,11 +97,21 @@ namespace DshDexterPanel
         private string labelReset = "Reset to top-right";
         private string labelToggle = "Show / hide panel";
         private string labelExit = "Exit panel";
+        private string labelCfgTitle = "Settings";
+        private string labelCfgMinutesUp = "Grant minutes +5";
+        private string labelCfgMinutesDown = "Grant minutes -5";
+        private string labelCfgActionsUp = "Grant actions +50";
+        private string labelCfgActionsDown = "Grant actions -50";
+        private string labelCfgRateUp = "Rate +10 /min";
+        private string labelCfgRateDown = "Rate -10 /min";
+        private string labelCfgReset = "Reset to 15 / 100 / 30";
         private string labelTray = "dsh-dexter";
         private readonly System.Windows.Forms.Timer poll;
         private readonly Label dot;
         private readonly Label headline;
         private readonly Label detail;
+        private readonly Label settings;
+        private string lastSettings = "";
         private readonly Label hideButton;
         private readonly ContextMenuStrip menu;
         private readonly NotifyIcon tray;
@@ -173,9 +183,33 @@ namespace DshDexterPanel
             detail.Visible = false;
             Controls.Add(detail);
 
+            // Third line: the three numbers a human tunes. Only visible when expanded, because
+            // the collapsed strip is just a status light.
+            settings = new Label();
+            settings.Text = "";
+            settings.ForeColor = Color.FromArgb(150, 200, 170);
+            settings.Font = new Font("Segoe UI", 8.5f);
+            settings.AutoSize = false;
+            settings.TextAlign = ContentAlignment.TopLeft;
+            settings.Size = new Size(236, 40);
+            settings.Location = new Point(12, 150);
+            settings.Visible = false;
+            Controls.Add(settings);
+
             menu = new ContextMenuStrip();
             menu.Items.Add(labelReset, null, delegate { ResetPosition(); });
             menu.Items.Add(labelToggle, null, delegate { if (collapsedToStrip) ShowFromStrip(); else HideToStrip(); });
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(new ToolStripMenuItem(labelCfgTitle, null, (object s, EventArgs e) => { }));
+            ((ToolStripMenuItem)menu.Items[menu.Items.Count - 1]).Enabled = false;
+            menu.Items.Add(labelCfgMinutesUp, null, delegate { Request("cfg armMinutes +5"); });
+            menu.Items.Add(labelCfgMinutesDown, null, delegate { Request("cfg armMinutes -5"); });
+            menu.Items.Add(labelCfgActionsUp, null, delegate { Request("cfg armActions +50"); });
+            menu.Items.Add(labelCfgActionsDown, null, delegate { Request("cfg armActions -50"); });
+            menu.Items.Add(labelCfgRateUp, null, delegate { Request("cfg maxActionsPerMinute +10"); });
+            menu.Items.Add(labelCfgRateDown, null, delegate { Request("cfg maxActionsPerMinute -10"); });
+            menu.Items.Add(labelCfgReset, null, delegate { Request("cfg reset"); });
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(labelExit, null, delegate { Close(); });
             ContextMenuStrip = menu;
 
@@ -238,6 +272,14 @@ namespace DshDexterPanel
                     else if (key == "toggle") labelToggle = value;
                     else if (key == "exit") labelExit = value;
                     else if (key == "tray") labelTray = value;
+                    else if (key == "cfgtitle") labelCfgTitle = value;
+                    else if (key == "cfgminutesup") labelCfgMinutesUp = value;
+                    else if (key == "cfgminutesdown") labelCfgMinutesDown = value;
+                    else if (key == "cfgactionsup") labelCfgActionsUp = value;
+                    else if (key == "cfgactionsdown") labelCfgActionsDown = value;
+                    else if (key == "cfgrateup") labelCfgRateUp = value;
+                    else if (key == "cfgratedown") labelCfgRateDown = value;
+                    else if (key == "cfgreset") labelCfgReset = value;
                 }
                 // Diagnostic: what the menus actually got, so a test can prove the Chinese
                 // labels reached the window instead of guessing from a screenshot.
@@ -250,6 +292,17 @@ namespace DshDexterPanel
 
         private bool dragging;
         private Point dragOffset;
+
+        /** Leave one configuration request for the plugin; it applies it through its validator. */
+        private void Request(string line)
+        {
+            try
+            {
+                string path = Path.Combine(dir, "panel-requests.txt");
+                File.AppendAllText(path, line + "\r\n", new UTF8Encoding(false));
+            }
+            catch { }
+        }
 
         /// <summary>
         /// Manual drag instead of the native move loop: WM_NCLBUTTONDOWN + HTCAPTION hands
@@ -281,7 +334,8 @@ namespace DshDexterPanel
         {
             expanded = !expanded;
             detail.Visible = expanded;
-            ClientSize = new Size(expanded ? 264 : 252, expanded ? 166 : 42);
+            settings.Visible = expanded && lastSettings.Length > 0;
+            ClientSize = new Size(expanded ? 264 : 252, expanded ? 210 : 42);
             ClampIntoWorkingArea();
             SavePosition();
         }
@@ -291,6 +345,7 @@ namespace DshDexterPanel
             collapsedToStrip = true;
             expanded = false;
             detail.Visible = false;
+            settings.Visible = false;
             ClientSize = new Size(14, 56);
             Rectangle work = Screen.FromPoint(Cursor.Position).WorkingArea;
             // 4 px inset: with an auto-hidden taskbar the working area equals the screen, and
@@ -373,12 +428,19 @@ namespace DshDexterPanel
                     string[] lines = File.ReadAllLines(statePath, Encoding.UTF8);
                     string head = lines.Length > 0 ? lines[0] : "";
                     string body = lines.Length > 1 ? lines[1] : "";
+                    string cfg = lines.Length > 2 ? lines[2] : "";
                     if (head != lastHeadline || body != lastDetail)
                     {
                         lastHeadline = head;
                         lastDetail = body;
                         if (head.Length > 0) headline.Text = head;
                         if (body.Length > 0) detail.Text = body;
+                    }
+                    if (cfg != lastSettings)
+                    {
+                        lastSettings = cfg;
+                        settings.Text = cfg;
+                        settings.Visible = expanded && cfg.Length > 0;
                     }
                 }
                 RunCommand();
