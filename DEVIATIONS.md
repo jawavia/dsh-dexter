@@ -97,9 +97,13 @@ default (per-write asking), and every session carries both bounds plus a rate ca
 `kernel/config.js:FIELD_SPEC`, so Plugin Manager shows exactly one settings page for
 this plugin row. The previous bundle had a custom web-UI section (pixel
 `client.js:392`) and no section at all for the other two engines.
-**Deviation:** the plugin's own config form is the settings page; there is no bespoke
-settings panel with sliders. A small `client.js` exists, but only for two composer
-buttons (授权 / 面板) — it declares no defaults and holds no state.
+**Deviation (corrected 2026-11-14):** DSH only renders forms for *volatile* fields
+(`dsh-settings`: “Forms expose only volatile fields … Ordinary configuration remains
+editable through Cordis configuration files”). Our keys are ordinary, so **there is no
+settings page for them** — the earlier claim in this file was wrong. The human changes
+them with `/dexter set <key> <value>`, which validates against `FIELD_SPEC` and persists
+through the host config editor (profile patch + reload), or by editing the patch directly.
+A small `client.js` exists, but only for two composer buttons (授权 / 面板).
 **Why:** a settings UI would be a second place to declare defaults, and the profile
 config row is already the single source. `hands_status` and `/dexter status` carry
 the live state, and the desktop panel shows it when the DSH window is covered.

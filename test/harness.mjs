@@ -22,6 +22,7 @@ export function makeMockContext({ approvalOutcome = 'allowed-once', approvalCall
   const tools = []
   const commands = []
   const logs = []
+  const edits = []
   let approvalHandler = () => approvalOutcome
   const ctx = {
     tools: {
@@ -69,8 +70,21 @@ export function makeMockContext({ approvalOutcome = 'allowed-once', approvalCall
           saveImage: async ({ name: imageName }) => ({ id: `test-${imageName || 'image'}`, mediaType: 'image/png' }),
         }
       }
+      // The host's config editor: /dexter set persists through it. The stub records the
+      // candidate so a test can assert what would be written to the profile patch.
+      if (name === 'configEditor') {
+        return {
+          edit: async (entry, mutate) => {
+            const candidate = mutate({})
+            edits.push({ entry, candidate })
+            return candidate
+          },
+        }
+      }
       return undefined
     },
+    fiber: { entry: { id: 'dsh-dexter' } },
+    _edits: edits,
     inject(_names, callback) {
       callback(ctx)
       return () => {}
@@ -99,6 +113,7 @@ export function makeMockContext({ approvalOutcome = 'allowed-once', approvalCall
     commands,
     logs,
     approvalCalls,
+    edits,
     setApproval(outcome) {
       approvalHandler = typeof outcome === 'function' ? outcome : () => outcome
     },

@@ -19,7 +19,7 @@ import { Gate } from './kernel/gate.js'
 import { HumanActivity } from './kernel/human.js'
 import { Kernel } from './kernel/kernel.js'
 import { StopBus } from './kernel/stopbus.js'
-import { buildSchema, DEFAULTS, describeConfig, normalizeConfig } from './kernel/config.js'
+import { buildSchema, DEFAULTS, describeConfig, normalizeConfig, fieldSpec, EDITABLE_KEYS } from './kernel/config.js'
 import { dataDir, shortText } from './kernel/util.js'
 import { createPixelBackend } from './backends/legacy-pixel.js'
 import { createToyDrawer } from './backends/toy-draw.js'
@@ -162,6 +162,8 @@ function commandHelp() {
     '  panel                   桌面面板：显示/唤回',
     '  panel hide|reset        缩成屏幕边条 / 复位到右上角',
     '  panel exit              关掉面板（重启插件会再出现）',
+    '  set <键> <值>            改持久配置（写 profile patch 并重载）；DSH 设置页只显示热更新字段',
+    '  例：/dexter set armMinutes 30 · /dexter set armActions 200 · /dexter set maxActionsPerMinute 60',
     '  数值长期改法：插件设置里的 armMinutes / armActions / maxActionsPerMinute',
   ].join('\n')
 }
@@ -172,6 +174,35 @@ function commandHelp() {
  *   a bare number ≤ 480 is minutes (the armMinutes range), anything larger is actions
  * Anything omitted or unparseable falls back to the configured defaults.
  */
+/**
+ * Parse one value for `/dexter set <key> <value>` against its FIELD_SPEC entry.
+ * Returns `{ value }` or `{ error }`; the caller persists the value through the host's
+ * config editor, so the validation here is what keeps a bad number out of the profile patch.
+ */
+function parseConfigValue(spec, raw) {
+  const text = String(raw ?? '').trim()
+  if (spec.type === 'bool') {
+    if (/^(true|1|on|yes|是|开)$/i.test(text)) return { value: true }
+    if (/^(false|0|off|no|否|关)$/i.test(text)) return { value: false }
+    return { error: `要 true 或 false（收到「${text}」）` }
+  }
+  if (spec.type === 'int') {
+    if (!/^-?\d+$/.test(text)) return { error: `要整数（收到「${text}」）` }
+    const value = Number(text)
+    const min = spec.min ?? 0
+    const max = spec.max ?? Number.MAX_SAFE_INTEGER
+    if (value < min || value > max) return { error: `范围是 ${min}..${max}（收到 ${value}）` }
+    return { value }
+  }
+  if (spec.type === 'enum') {
+    const values = Array.isArray(spec.values) ? spec.values : []
+    if (!values.includes(text)) return { error: `只能是 ${values.join(' / ')}（收到「${text}」）` }
+    return { value: text }
+  }
+  if (text === '') return { error: '空字符串没有意义；要清空请直接改 patch' }
+  return { value: text }
+}
+
 function parseArmArgs(first, second, config) {
   const read = (token, kind) => {
     if (token === undefined || token === '') return null
@@ -472,7 +503,7 @@ export function apply(ctx, rawConfig = {}) {
         name: 'dexter',
         description: '桌面 hands（人类专用）：状态、开会话授权、续期、急停',
         input: { hint: 'status | arm [15m] [100] | extend | stop | clear | panel [show|hide|reset|exit]' },
-        handler: (invocation) => {
+        handler: async (invocation) => {
           // The gateway requires a CommandResult: { kind: 'success'|'error', text }.
           // A bare string is rejected with "command handler must return a CommandResult".
           const ok = (text) => ({ kind: 'success', text: String(text) })
@@ -528,6 +559,31 @@ export function apply(ctx, rawConfig = {}) {
             const result = panel.command(command)
             const restarted = up.reused ? '' : '（已重新启动面板进程）'
             return result.ok ? ok(`面板命令已发送：${command}${restarted}`) : bad(`面板命令失败：${result.reason}`)
+          }
+          if (verbName === 'set') {
+            // DSH's Settings page only renders *volatile* fields; ordinary configuration has
+            // no form at all. This command is the human's way to change those numbers: it
+            // validates against FIELD_SPEC and persists through the host config editor, which
+            // writes the profile patch and reloads the plugin.
+            const key = String(a || '').trim()
+            const rawValue = b === undefined ? '' : String(b).trim()
+            if (key === '') return bad(`用法：/dexter set <键> <值>。可改的键见 /dexter status 的配置行；例如 /dexter set armMinutes 30`)
+            const spec = fieldSpec(key)
+            if (!spec) return bad(`未知配置键：${key}。可改的键：${EDITABLE_KEYS.join(', ')}`)
+            const parsed = parseConfigValue(spec, rawValue)
+            if (parsed.error) return bad(`${key}：${parsed.error}`)
+            const entry = ctx && ctx.fiber ? ctx.fiber.entry : undefined
+            const editor = getService(ctx, 'configEditor')
+            if (!entry || !editor || typeof editor.edit !== 'function') {
+              return bad(`当前 profile 不能通过界面保存配置（缺少 configEditor 或 entry）。请直接改 profile 的 cordis.patch.yml：- id: dsh-dexter / config: { ${key}: ${parsed.value} }`)
+            }
+            try {
+              const next = await editor.edit(entry, (current) => ({ ...(current || {}), [key]: parsed.value }))
+              const applied = next && Object.hasOwn(next, key) ? next[key] : parsed.value
+              return ok(`已设置 ${key} = ${JSON.stringify(applied)}（写入 profile 的 patch，插件会重新加载生效）。`)
+            } catch (error) {
+              return bad(`保存失败：${error && error.message ? error.message : error}`)
+            }
           }
           return ok(commandHelp())
         },
