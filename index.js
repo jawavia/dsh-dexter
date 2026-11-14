@@ -27,6 +27,7 @@ import { createButtonProbe } from './backends/win-probe.js'
 import { createHotkeyProbe } from './backends/hotkey-probe.js'
 import { createPanel } from './kernel/panel.js'
 import { combosFromConfig, comboLabel } from './kernel/keys.js'
+import { loadOverrides, saveOverrides, clampOverride, OVERRIDE_KEYS } from './kernel/overrides.js'
 import { createUiaBackend } from './backends/legacy-uia.js'
 import { describeEngines } from './backends/resolve.js'
 import { buildDefinitions } from './tools/definitions.js'
@@ -236,7 +237,9 @@ export function apply(ctx, rawConfig = {}) {
   const config = normalizeConfig(rawConfig)
   // Volatile fields (armMinutes / armActions / maxActionsPerMinute) update in place when the
   // human edits them in DSH's Settings page; everything that uses them reads through this.
-  const live = (key) => liveConfig(rawConfig, config, key)
+  // Third layer: values adjusted from the desktop panel (DSH's editor refuses nested includes).
+  let runtimeOverrides = loadOverrides(dataDir())
+  const live = (key) => runtimeOverrides[key] !== undefined ? runtimeOverrides[key] : liveConfig(rawConfig, config, key)
   const version = readVersion()
   const logger = (message) => {
     try {
@@ -401,29 +404,35 @@ export function apply(ctx, rawConfig = {}) {
           if (requests.length === 0) return
           applyingPanelRequest = true
           try {
-            const entry = ctx && ctx.fiber ? ctx.fiber.entry : undefined
-            const editor = getService(ctx, 'configEditor')
             for (const line of requests) {
               const request = panel.parseRequest(line)
               if (!request) continue
               const changes = request.reset
                 ? [['armMinutes', DEFAULTS.armMinutes], ['armActions', DEFAULTS.armActions], ['maxActionsPerMinute', DEFAULTS.maxActionsPerMinute]]
                 : [[request.key, panel.nextValue(live(request.key), request.delta, fieldSpec(request.key))]]
-              if (!editor || typeof editor.edit !== 'function' || !entry) {
-                audit.append({ tool: 'panel', capability: 'config', decision: 'denied', approval: 'none', reason: 'no-config-editor', result: changes.map(([key, value]) => `${key}=${value}`).join(' ') })
-                continue
+              // The three numbers live in the runtime-override layer: the host config editor
+              // refuses a nested include ("HMR transactions cannot be nested"), and these
+              // values only need to take effect here.
+              const applied = []
+              const rejected = []
+              for (const [key, value] of changes) {
+                const clamped = clampOverride(key, value)
+                if (clamped === null) {
+                  rejected.push(key)
+                  continue
+                }
+                runtimeOverrides = { ...runtimeOverrides, [key]: clamped }
+                applied.push(`${key}=${clamped}`)
               }
-              try {
-                const next = await editor.edit(entry, (current) => {
-                  const merged = { ...(current || {}) }
-                  for (const [key, value] of changes) merged[key] = value
-                  return merged
-                })
-                const applied = changes.map(([key, value]) => `${key}=${next && Object.hasOwn(next, key) ? next[key] : value}`).join(' ')
-                audit.append({ tool: 'panel', capability: 'config', decision: 'set', approval: 'none', result: applied })
-              } catch (error) {
-                audit.append({ tool: 'panel', capability: 'config', decision: 'error', approval: 'none', reason: String(error && error.message ? error.message : error) })
-              }
+              const saved = applied.length > 0 ? saveOverrides(dataDir(), runtimeOverrides) : { ok: true }
+              audit.append({
+                tool: 'panel',
+                capability: 'config',
+                decision: applied.length > 0 && saved.ok ? 'set' : 'denied',
+                approval: 'none',
+                result: applied.join(' '),
+                reason: rejected.length > 0 ? `not-overridable: ${rejected.join(',')}` : (saved.ok ? '' : saved.reason),
+              })
             }
           } finally {
             applyingPanelRequest = false
@@ -636,6 +645,17 @@ export function apply(ctx, rawConfig = {}) {
             if (!spec) return bad(`未知配置键：${key}。可改的键：${EDITABLE_KEYS.join(', ')}`)
             const parsed = parseConfigValue(spec, rawValue)
             if (parsed.error) return bad(`${key}：${parsed.error}`)
+            // The three tunable numbers go to the same runtime-override layer the panel uses
+            // (the host editor refuses a nested include); every other key goes to the host.
+            if (OVERRIDE_KEYS.includes(key)) {
+              const clamped = clampOverride(key, parsed.value)
+              if (clamped === null) return bad(`${key}：范围 ${spec.min ?? 0}..${spec.max ?? '∞'}（收到 ${parsed.value}）`)
+              runtimeOverrides = { ...runtimeOverrides, [key]: clamped }
+              const saved = saveOverrides(dataDir(), runtimeOverrides)
+              if (!saved.ok) return bad(`保存失败：${saved.reason}`)
+              audit.append({ tool: 'command', capability: 'config', decision: 'set', approval: 'none', result: `${key}=${clamped}`, reason: 'runtime override' })
+              return ok(`已设置 ${key} = ${clamped}（立即生效；面板菜单改的是同一处）。`)
+            }
             const entry = ctx && ctx.fiber ? ctx.fiber.entry : undefined
             const editor = getService(ctx, 'configEditor')
             if (!entry || !editor || typeof editor.edit !== 'function') {

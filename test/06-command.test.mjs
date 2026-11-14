@@ -6,6 +6,8 @@
  * live install (nine failed `command.execute` rows). This pins the shape:
  *   { kind: 'success' | 'error', text: string }
  */
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { bootPlugin } from './harness.mjs'
 import { createReport } from './assert.mjs'
 
@@ -42,12 +44,17 @@ try {
     report.ok('legacy `input` shape still works', legacy && legacy.kind === 'success')
     report.ok('empty invocation means status', (await command.handler({})).kind === 'success')
 
-    // `/dexter set` is the human's way to change ordinary config (DSH has no settings form
-    // for non-volatile fields): it validates, then persists through the host config editor.
+    // `/dexter set` validates every key. The three tunable numbers go to the runtime-override
+    // layer (the host editor refuses a nested include); other keys go to the host editor.
     const setOk = await command.handler({ rawInput: 'set armMinutes 30' })
     report.ok('set accepts a valid number', setOk.kind === 'success' && setOk.text.includes('armMinutes'), setOk.text.slice(0, 80))
-    const edit = (plugin.mock.edits || []).pop()
-    report.ok('set writes through the config editor', Boolean(edit) && edit.candidate.armMinutes === 30, JSON.stringify(edit && edit.candidate))
+    const overridesFile = join(plugin.dataDir, 'runtime-overrides.json')
+    const overrides = existsSync(overridesFile) ? JSON.parse(readFileSync(overridesFile, 'utf8')) : null
+    report.ok('an override key lands in runtime-overrides.json', Boolean(overrides) && overrides.armMinutes === 30, JSON.stringify(overrides))
+    report.ok('an override key does not touch the host editor', (plugin.mock.edits || []).length === 0)
+    const hostKey = await command.handler({ rawInput: 'set askOnWrite false' })
+    const hostEdit = (plugin.mock.edits || []).pop()
+    report.ok('a non-override key goes through the config editor', hostKey.kind === 'success' && Boolean(hostEdit) && hostEdit.candidate.askOnWrite === false, JSON.stringify(hostEdit && hostEdit.candidate))
     const setRange = await command.handler({ rawInput: 'set armMinutes 0' })
     report.ok('set rejects a value below the range', setRange.kind === 'error' && setRange.text.includes('范围'), setRange.text.slice(0, 60))
     const setType = await command.handler({ rawInput: 'set armActions abc' })
