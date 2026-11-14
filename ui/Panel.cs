@@ -50,6 +50,7 @@ namespace DshDexterPanel
     {
         private const int GWL_EXSTYLE = -20;
         private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
 
         /// <summary>
         /// A status strip must never take focus: if it became the foreground window, the next
@@ -65,7 +66,9 @@ namespace DshDexterPanel
             get
             {
                 CreateParams cp = base.CreateParams;
-                cp.ExStyle |= WS_EX_NOACTIVATE;
+                // Tool window: no taskbar button, no Alt+Tab entry. A status strip that shows up
+                // as an application window is noise, and people close it by reflex.
+                cp.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW;
                 return cp;
             }
         }

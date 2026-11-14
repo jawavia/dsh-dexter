@@ -29,8 +29,10 @@ public static class W {
             int ex = GetWindowLong(hWnd, -20);
             bool topmost = (ex & 0x8) != 0;
             bool transparent = (ex & 0x20) != 0;
-            rows.Add(string.Format("pid={0} hwnd=0x{1:X} visible={2} topmost={3} clickthrough={4} rect={5},{6},{7},{8} title={9}",
-                pid, hWnd.ToInt64(), IsWindowVisible(hWnd), topmost, transparent, r.L, r.T, r.R, r.B, sb.ToString()));
+            bool toolwindow = (ex & 0x80) != 0;
+            bool noactivate = (ex & 0x08000000) != 0;
+            rows.Add(string.Format("pid={0} hwnd=0x{1:X} visible={2} topmost={3} clickthrough={4} toolwindow={5} noactivate={6} rect={7},{8},{9},{10} title={11}",
+                pid, hWnd.ToInt64(), IsWindowVisible(hWnd), topmost, transparent, toolwindow, noactivate, r.L, r.T, r.R, r.B, sb.ToString()));
             return true;
         }, IntPtr.Zero);
         return rows;

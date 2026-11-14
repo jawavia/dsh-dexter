@@ -41,6 +41,9 @@ console.log('working area:', work)
 console.log('window rect:', rect.join(','))
 
 const topmost = Boolean(visible && visible.includes('topmost=True'))
+// A status strip must not be an application window: no taskbar button, no Alt+Tab entry.
+const toolWindow = Boolean(visible && visible.includes('toolwindow=True'))
+const noActivate = Boolean(visible && visible.includes('noactivate=True'))
 const inside = rect.length === 4 && rect[0] >= wl && rect[1] >= wt && rect[2] <= wr && rect[3] <= wb
 const visibleOk = Boolean(visible)
 
@@ -71,7 +74,7 @@ const after = Number(ps(['-Command', `(Get-Process -Id ${pid} -ErrorAction Silen
 console.log('probe panel processes after stop:', after)
 
 const alwaysClickable = before === false && afterCommand === false
-const ok = start.ok && pid > 0 && visibleOk && topmost && inside && alwaysClickable && labelsOk && after === 0
-console.log(`checks: visible=${visibleOk} topmost=${topmost} insideWorkingArea=${inside} alwaysClickable=${alwaysClickable} reaped=${after === 0}`)
+const ok = start.ok && pid > 0 && visibleOk && topmost && toolWindow && noActivate && inside && alwaysClickable && labelsOk && after === 0
+console.log(`checks: visible=${visibleOk} topmost=${topmost} toolwindow=${toolWindow} noactivate=${noActivate} insideWorkingArea=${inside} alwaysClickable=${alwaysClickable} labels=${labelsOk} reaped=${after === 0}`)
 console.log(ok ? 'panel: OK' : 'panel: FAILED')
 process.exit(ok ? 0 : 1)
