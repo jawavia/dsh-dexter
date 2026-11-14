@@ -1,0 +1,9 @@
+# Local wiring and machine-specific evidence stay out of the repository (A13).
+local.config.json
+baseline/local/
+evidence/local/
+node_modules/
+*.log
+*.zip
+*.tmp
+Thumbs.db

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Dexter">
+  <rect width="64" height="64" rx="14" fill="#101826"/>
+  <g stroke="#2c4a6b" stroke-width="1">
+    <path d="M16 8v48M32 8v48M48 8v48M8 16h48M8 32h48M8 48h48"/>
+  </g>
+  <path d="M30 12v22a6 6 0 0 0 12 0V22l-4-1v11a2 2 0 0 1-4 0V19z" fill="#57d7ff"/>
+  <circle cx="34" cy="45" r="4" fill="#57d7ff" opacity="0.55"/>
+  <path d="M30 34l-6 4 6 4" stroke="#57d7ff" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+</svg>

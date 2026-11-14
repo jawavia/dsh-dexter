@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Dexter 桌面双手",
+    "description": "给 DSH 用的 Windows 桌面操作：四个工具（看/动/批量/状态），一套授权闸门、一份审计。像素与 UIA 注入保留在原引擎里，只在内核重写。",
+    "detail": "docs/DETAIL.md"
+  }
+}

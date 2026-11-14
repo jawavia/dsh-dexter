@@ -1,0 +1,18 @@
+# dsh-dexter bundle patch: one Host row, one plugin, one settings page.
+#
+# The row id `dsh-dexter` is what a profile-level patch targets when it wants to
+# change a default:
+#
+#   - id: dsh-dexter
+#     config:
+#       approvalMode: latched
+#       approvalClicks: 20
+#       approvalLatchedSeconds: 600
+#
+# `config` is left empty on purpose: every default lives in kernel/config.js, and a
+# profile override replaces the whole config object, so duplicating defaults here
+# would create the exact second-source problem this plugin removes.
+- insert:
+    - id: dsh-dexter
+      name: dsh-dexter
+      config: {}

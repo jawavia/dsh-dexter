@@ -1,0 +1,61 @@
+{
+  "source": {
+    "kind": "dexter",
+    "dir": "D:\\DEEPSEEKworkplace\\dsh-dexter"
+  },
+  "tools": [
+    {
+      "name": "hands_view",
+      "descChars": 202,
+      "descBytes": 374,
+      "paramCount": 12,
+      "paramSchemaBytes": 1460,
+      "outputSchemaBytes": 106,
+      "subtotal": 1940
+    },
+    {
+      "name": "hands_act",
+      "descChars": 168,
+      "descBytes": 368,
+      "paramCount": 19,
+      "paramSchemaBytes": 1772,
+      "outputSchemaBytes": 106,
+      "subtotal": 2246
+    },
+    {
+      "name": "hands_run",
+      "descChars": 100,
+      "descBytes": 250,
+      "paramCount": 4,
+      "paramSchemaBytes": 1650,
+      "outputSchemaBytes": 106,
+      "subtotal": 2006
+    },
+    {
+      "name": "hands_status",
+      "descChars": 55,
+      "descBytes": 157,
+      "paramCount": 1,
+      "paramSchemaBytes": 151,
+      "outputSchemaBytes": 106,
+      "subtotal": 414
+    }
+  ],
+  "totals": {
+    "tools": 4,
+    "descBytes": 1149,
+    "paramSchemaBytes": 5033,
+    "outputSchemaBytes": 424,
+    "totalBytes": 6606
+  },
+  "names": [
+    "hands_act",
+    "hands_run",
+    "hands_status",
+    "hands_view"
+  ],
+  "logs": [
+    "warn [dexter] legacy-uia 不可用，热键/人类暂停检测关闭：找不到 dsh-x2：请设置 legacyUiaPath、DSH_DEXTER_LEGACY_ROOT，或把它装在本插件旁边",
+    "warn [dexter] ready: 4 tools [hands_view, hands_act, hands_run, hands_status] · mode=per-action armTtl=120s readOnly=false verify=foreground human=20000ms freshLook=120s images=12/8000tok toy=off"
+  ]
+}

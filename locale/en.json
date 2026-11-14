@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Dexter desktop hands",
+    "description": "Windows desktop control for DSH: four tools (view / act / run / status), one authorization gate, one audit trail. Pixel and UIA injection stay in the proven legacy engines behind adapters.",
+    "detail": "docs/DETAIL.md"
+  }
+}

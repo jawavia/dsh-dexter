@@ -1,0 +1,174 @@
+{
+  "_note": "Sanitized baseline for dsh-dexter. Measured 2026-11-14 on the machine that already ran the previous bundle. No paths, no user names, no audit text: only counts and byte sizes, so this file can live in the repository.",
+  "generatedAt": "2026-11-14T07:20:00Z",
+  "metric": {
+    "sameAs": "tools/baseline.json of dsh-desktop-hands 0.2.6 (tool: measure-tools3)",
+    "descBytes": "UTF-8 bytes of the tool description",
+    "paramSchemaBytes": "UTF-8 bytes of JSON.stringify(parameters), a bare properties map wrapped as {type:'object',properties}",
+    "outputSchemaBytes": "UTF-8 bytes of JSON.stringify(output.schema)",
+    "subtotal": "descBytes + paramSchemaBytes + outputSchemaBytes"
+  },
+  "legacy": {
+    "recorded": {
+      "tools": 25,
+      "totalBytes": 35201,
+      "pixel": 20370,
+      "control": 12145,
+      "stroke": 2686
+    },
+    "remeasured": {
+      "tools": 25,
+      "totalBytes": 35174,
+      "pixel": 20370,
+      "control": 12118,
+      "stroke": 2686
+    },
+    "remeasureDelta": {
+      "bytes": -27,
+      "reason": "pixel and stroke reproduce byte-exactly; the old estimator wrapped control's bare parameter map slightly differently (+29 B params, -2 B output) so the six control tools differ by 29 B in total. The recorded 35,201 B stays the comparison target."
+    },
+    "audit": {
+      "pixel": {
+        "liveFile": {
+          "lines": 1812,
+          "attempt": 285,
+          "finished": 287,
+          "denied": 25,
+          "suspended": 434,
+          "resumed": 432,
+          "stop": 22,
+          "loaded": 19
+        },
+        "sealedGenerations": [
+          {
+            "lines": 1780,
+            "attempt": 94,
+            "finished": 106,
+            "denied": 35
+          },
+          {
+            "lines": 84,
+            "attempt": 5,
+            "finished": 16,
+            "denied": 1
+          },
+          {
+            "lines": 1806,
+            "attempt": 479,
+            "finished": 486,
+            "denied": 16
+          }
+        ],
+        "attemptsAllGenerations": 863
+      },
+      "control": {
+        "lines": 136,
+        "allow": 130,
+        "dryRun": 6,
+        "deny": 0
+      },
+      "stroke": {
+        "lines": 2
+      },
+      "shareOfWriteCalls": {
+        "pixel": 0.867,
+        "control": 0.131,
+        "stroke": 0.002,
+        "basis": "863 pixel attempts vs 130 control allows vs 2 stroke rows"
+      },
+      "orderFigure": {
+        "attempts": 769,
+        "note": "the order's 769 matches the live file plus the 2026-11-07 sealed generation (285+479=764) rather than a single file; no conclusion depends on it (see DEVIATIONS.md D9)"
+      }
+    }
+  },
+  "dexter": {
+    "default": {
+      "tools": 4,
+      "names": [
+        "hands_view",
+        "hands_act",
+        "hands_run",
+        "hands_status"
+      ],
+      "descBytes": 1149,
+      "paramSchemaBytes": 5033,
+      "outputSchemaBytes": 424,
+      "totalBytes": 6606,
+      "perTool": {
+        "hands_view": 1940,
+        "hands_act": 2246,
+        "hands_run": 2006,
+        "hands_status": 414
+      }
+    },
+    "withToy": {
+      "tools": 5,
+      "names": [
+        "hands_view",
+        "hands_act",
+        "hands_run",
+        "hands_status",
+        "stroke_toy"
+      ],
+      "totalBytes": 7691
+    },
+    "surfaceReduction": {
+      "tools": "-21",
+      "bytes": "-28595",
+      "percent": "-81.2%"
+    }
+  },
+  "behaviour": {
+    "dualRun": {
+      "scenarios": 20,
+      "identical": 19,
+      "ratio": "19/20",
+      "passesA11": true,
+      "note": "an earlier quiet-desktop run gave 20/20; the only difference is whether the old engine was suspended by a real human at that moment",
+      "humanPauseOffBothSides": true,
+      "deliberateRuleDifference": "move: old AccessGate.checkMove() allows it with no grant, dsh-dexter gates it; proven by tools/rule-probe.mjs (differsOnMoveOnly: true) and documented as D7"
+    },
+    "fastSuite": {
+      "surface": "19/19",
+      "invariants": "69/69",
+      "config": "14/14",
+      "repoScan": "49 files, 0 FAIL, 0 WARN"
+    },
+    "ciLocal": {
+      "commands": 3,
+      "passed": 3,
+      "structuralFailures": 0,
+      "executedOnGitHub": false
+    },
+    "toy": {
+      "drawer": "backends/toy-draw.js (in-repo, SendInput via MIT primitives)",
+      "externalStrokeDependency": false
+    },
+    "liveSmoke": {
+      "tools": 4,
+      "liveMovesExecuted": 20,
+      "approvalRequests": 20,
+      "auditRows": 71,
+      "executedMoveRows": 21,
+      "executedRowsWithApprovalVerifyArgsHash": "21/21",
+      "suspendMsViaHook": 59,
+      "suspendMsViaRealKey": 434,
+      "spuriousSuspendsFromOwnMoves": 0,
+      "pixelLegacyTrailRows": 1,
+      "pixelLegacyTrailDecisions": "loaded:1",
+      "singleAuditFile": true,
+      "stopRefusesNextWrite": true
+    },
+    "elevation": {
+      "processElevated": false,
+      "uacConsentProcesses": 0
+    },
+    "authorization": {
+      "sessionDefaults": "15m/100/30 per min",
+      "hoverFree": true,
+      "permanentDeny": "system/security targets",
+      "sensitiveAsk": true
+    }
+  }
+}

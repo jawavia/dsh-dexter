@@ -1,0 +1,28 @@
+name: static checks
+
+# A15: only static checks run in public CI. The GUI tests (test/live-smoke.mjs,
+# tools/dual-run.mjs) inject real mouse/keyboard input and need a real Windows
+# desktop, so they are deliberately NOT part of this workflow.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Surface, invariants and config (no input injected)
+        run: |
+          node test/01-surface.test.mjs
+          node test/02-auth-invariants.test.mjs
+          node test/03-config-single-source.test.mjs
+      - name: Repository hygiene (paths, secrets, licenses, manifest)
+        run: node tools/check-repo.mjs
+      - name: Surface weight
+        run: node tools/measure-surface.mjs dexter
