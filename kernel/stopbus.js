@@ -53,6 +53,31 @@ export class StopBus {
     return join(this.dataDir, 'stop.signal')
   }
 
+  /**
+   * A global hotkey press that the plugin's own listener received. This replaces the polled
+   * probe for arm/extend/stop: the listener owns the combos, so the same four human actions
+   * arrive here as one call each.
+   */
+  hotkey(name) {
+    if (name === 'arm') {
+      if (this.onArm) this.onArm()
+      return true
+    }
+    if (name === 'extend') {
+      if (this.onExtend) this.onExtend()
+      return true
+    }
+    if (name === 'soft') {
+      this.request('soft', 'human', 'hotkey')
+      return true
+    }
+    if (name === 'stop') {
+      this.request('stop', 'human', 'hotkey')
+      return true
+    }
+    return false
+  }
+
   start() {
     if (this.timer || !this.probe) return this
     this.timer = setInterval(() => {

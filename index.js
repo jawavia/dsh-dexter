@@ -25,6 +25,7 @@ import { createPixelBackend } from './backends/legacy-pixel.js'
 import { createToyDrawer } from './backends/toy-draw.js'
 import { createButtonProbe } from './backends/win-probe.js'
 import { createHotkeyProbe } from './backends/hotkey-probe.js'
+import { buildHotkeys, cscPath, startHotkeys } from './kernel/hotkeys.js'
 import { createPanel } from './kernel/panel.js'
 import { combosFromConfig, comboLabel } from './kernel/keys.js'
 import { loadOverrides, saveOverrides, clampOverride, OVERRIDE_KEYS } from './kernel/overrides.js'
@@ -241,6 +242,9 @@ function parseArmArgs(first, second, config, live = null) {
 }
 
 export function apply(ctx, rawConfig = {}) {
+  // The pixel engine's helper must release the arm combo *before* it starts, or it keeps owning
+  // Ctrl+Alt+F12 and the plugin's own listener loses the registration.
+  process.env.DSH_DEXTER_HOTKEYS = 'arm'
   const config = normalizeConfig(rawConfig)
   // Volatile fields (armMinutes / armActions / maxActionsPerMinute) update in place when the
   // human edits them in DSH's Settings page; everything that uses them reads through this.
@@ -282,6 +286,7 @@ export function apply(ctx, rawConfig = {}) {
 
   const backends = { pixel: null, uia: null, toy: null }
   let hotkeys = null
+  let hotkeyListener = null
   let panel = null
   let panelTimer = null
   const kernel = new Kernel({ config, audit, gate, stopbus: null, human: null, backends, attachments, buttons: null, docsPath: join(HERE, 'docs', 'HANDS.md'), combos, logger })
@@ -358,6 +363,42 @@ export function apply(ctx, rawConfig = {}) {
             + (taken.some((combo) => combo.name === 'stop') ? '（急停热键被占时 pixel 引擎会拒绝注入——先关掉占用它的程序，或重启 DSH 让 helper 重新注册）' : ''))
         } else {
           logger('热键就绪：Ctrl+Alt+F12 / F10 / F11 / Ctrl+Shift+F11 均可用')
+        }
+      }
+      // The engine's helper otherwise owns Ctrl+Alt+F12 for a gate this plugin bypasses, so
+      // the key did nothing here. Own it: the helper releases the arm combo (its emergency
+      // stop stays), and this listener turns presses into the same actions as the buttons.
+      if (config.hotkeysEnabled && process.env.DSH_DEXTER_NO_HOTKEYS !== '1') {
+        const built = buildHotkeys({ layout: HERE, dataDir: dataDir(), csc: cscPath(), logger })
+        if (!built.ok) {
+          logger(`热键监听不可用（热键不生效，按钮和命令仍可用）：${built.reason}`)
+        } else {
+          hotkeyListener = startHotkeys({
+            exe: built.exe,
+            // Only the two combos the engine cannot serve for us: it keeps its own emergency
+            // stop (Ctrl+Alt+F11) and soft stop (Ctrl+Shift+F11), so a listener crash still
+            // leaves a working stop at the injection level.
+            combos: {
+              arm: comboLabel(combos.arm),
+              extend: comboLabel(combos.extend),
+            },
+            onEvent: (name) => {
+              const handled = stopbus.hotkey(name)
+              if (handled) {
+                audit.append({ tool: 'hotkey', capability: 'input', decision: name, approval: 'human', engine: 'dexter', result: `key=${name}` })
+              }
+            },
+            onReady: (registered) => {
+              const missing = Object.entries(registered).filter(([, ok]) => !ok).map(([key]) => key)
+              logger(missing.length === 0
+                ? '热键监听就绪：F12 授权 · F10 续期 · Shift+F11 软停 · F11 急停'
+                : `热键监听就绪，但未拿到：${missing.join('、')}（被其它程序占用）`)
+            },
+            onFailed: (name) => logger(`热键 ${name} 注册失败（被占用）`),
+            onExit: ({ code }) => logger(`热键监听退出（code=${code}），热键不再生效；按钮与 /dexter 命令仍可用`),
+            logger,
+          })
+          if (!hotkeyListener.ok) logger(`热键监听启动失败：${hotkeyListener.reason}`)
         }
       }
     } else {
@@ -480,11 +521,22 @@ export function apply(ctx, rawConfig = {}) {
       maxActionsPerMinute: live('maxActionsPerMinute'),
     }),
     lastView: { ...kernel.status({ tail: 0 }).lastView, requireFreshSeconds: config.requireFreshLookSeconds },
-    // Refresh the probe: after the pixel helper starts it may claim F11/F12, so the answer
-    // taken at apply time can be stale (four register/unregister pairs, cheap).
-    hotkeys: hotkeys && hotkeys.ok
-      ? (() => { try { hotkeys.check() } catch { /* keep the old answer */ } return hotkeys.summary() })()
-      : '热键：未检测（uia 后端不可用）',
+    // The listener owns the combos, so its registration result is the truth. The probe is
+    // only a fallback for the case where the listener could not be built or started.
+    hotkeys: hotkeyListener && hotkeyListener.ok
+      ? (() => {
+        const summary = hotkeyListener.summary()
+        const registered = summary.registered
+        if (!registered) return '热键：监听进程已启动，等待注册结果'
+        const mine = Object.entries(registered).filter(([, ok]) => ok).map(([name]) => name)
+        const missing = Object.entries(registered).filter(([, ok]) => !ok).map(([name]) => name)
+        return missing.length === 0
+          ? '热键：F12 授权 / F10 续期由本插件持有；F11 急停 / Shift+F11 软停由引擎持有（四条都有效）'
+          : `热键：本插件拿到 ${mine.join('、') || '无'}；未拿到 ${missing.join('、')}（被其它程序占用）；F11/Shift+F11 仍由引擎持有`
+      })()
+      : (hotkeys && hotkeys.ok
+        ? (() => { try { hotkeys.check() } catch { /* keep the old answer */ } return hotkeys.summary() })()
+        : '热键：未检测（uia 后端不可用）'),
     panelNote: panel
       ? `面板：${panel.running ? '运行中' : '未运行（/dexter panel show 重新打开）'}`
       : (config.panelEnabled ? '面板：不可用（看插件日志）' : '面板：已关闭（配置 panelEnabled=false）'),
@@ -555,6 +607,7 @@ export function apply(ctx, rawConfig = {}) {
           // global hotkeys. Leaving it behind is what made "clicks stopped working"
           // after a plugin reload (it owns Ctrl+Alt+F11, so the next helper cannot
           // register it and the engine then refuses to inject).
+          try { hotkeyListener?.stop?.() } catch { /* listener already gone */ }
           try {
             backends.pixel?.dispose?.()
           } catch { /* helper already gone */ }
@@ -712,6 +765,7 @@ export function apply(ctx, rawConfig = {}) {
     }
     // Same reason as the effect cleanup above: never leave the helper (and its claimed
     // global hotkeys) behind when this plugin goes away.
+    try { hotkeyListener?.stop?.() } catch { /* listener already gone */ }
     try {
       backends.pixel?.dispose?.()
     } catch { /* helper already gone */ }

@@ -48,9 +48,20 @@ The MIT terms that apply to that derived portion:
 > In no event shall the authors or copyright holders be liable for any claim, damages or
 > other liability arising from the Software or its use.
 
+## Local modification of a vendored file
+
+`vendor/pixel/runtime/helper.cs` carries **one** local change (2026-11-14), marked with a
+`dsh-dexter patch` comment: when the environment variable `DSH_DEXTER_HOTKEYS` is set, the
+helper does not claim the global hotkeys itself (`arm` = release only Ctrl+Alt+F12,
+`external` = release all three). Without that, the plugin's own listener could not own
+Ctrl+Alt+F12, because the helper hardcodes it for a gate the plugin bypasses. Everything else
+in the file is upstream code, unchanged. MIT permits this; the modification is listed here and
+in `DEVIATIONS.md` so the change is never mistaken for upstream behaviour.
+
 ## What this repository never contains
 
-- no `.exe`: the pixel helper is compiled at runtime by its own package from
-  `runtime/helper.cs` with the in-box .NET Framework compiler;
-- no copied engine source, no `node_modules`, no koffi binary;
+- no committed `.exe`: the pixel helper is compiled at runtime by its own package from
+  `runtime/helper.cs`, and this plugin's two Windows helpers (`ui/Panel.cs` → the desktop
+  strip, `ui/Hotkeys.cs` → the hotkey listener) are compiled on first use with the in-box
+  .NET Framework compiler;
 - no audit logs, no screenshots, no machine paths (see `tools/check-repo.mjs`).

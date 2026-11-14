@@ -6,6 +6,38 @@ that is written down.
 
 ---
 
+## D14 — The plugin owns its arm hotkeys; the engine keeps the stop ones (2026-11-14)
+
+**Problem found during acceptance:** the status line said
+`CTRL+ALT+F12 被占用 · CTRL+ALT+F11 被占用`, and the occupier was **our own pixel helper**: it
+hardcodes Ctrl+Alt+F12 (its arm toggle), Ctrl+Alt+F11 (abort) and Ctrl+Shift+F11 (soft stop).
+The plugin never registered any of them, so pressing F12 opened the *engine's* gate — which this
+plugin bypasses — and the human's real authorization stayed closed. The keys looked dead.
+
+**Decision (human chose option B):** the plugin owns the keys that matter for its own gate.
+
+| Combo | Owner | Effect |
+|---|---|---|
+| Ctrl+Alt+F12 | **plugin** (`ui/Hotkeys.cs` listener) | opens a bounded session grant for this plugin |
+| Ctrl+Alt+F10 | **plugin** (same listener) | extends it |
+| Ctrl+Alt+F11 | engine helper (unchanged) | emergency stop at the injection level |
+| Ctrl+Shift+F11 | engine helper (unchanged) | soft stop at the injection level |
+
+**How the arm combo became free:** one environment-gated line in the vendored
+`runtime/helper.cs` (see `THIRD-PARTY-NOTICES.md`): `DSH_DEXTER_HOTKEYS=arm` makes the helper
+release Ctrl+Alt+F12 only. The stop combos deliberately stay with the engine, so a listener
+crash still leaves a working stop, and a stop press never depends on the plugin's event loop.
+
+**Cost:** if the listener cannot start (compile failure, combo taken by another app), the
+authorize hotkey does not work — the button and `/dexter arm` still do, and `hands_status`
+says which combos the listener actually holds. Tests never start the listener
+(`DSH_DEXTER_NO_HOTKEYS=1`), because a test run must not steal the real hotkeys from the
+running plugin.
+
+**Evidence:** `test/12-hotkeys.test.mjs` (protocol, action mapping, source invariants);
+live proof: a posted `WM_HOTKEY` (id 1) reached the listener and produced
+`gate · grant-opened` plus `hotkey · input · arm` in the audit trail.
+
 ## D13 — Free hover, and the numbers the human chose (2026-11-14)
 
 **Decisions from the review meeting:** hover exemption (方案 C), session defaults

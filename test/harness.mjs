@@ -132,6 +132,9 @@ function makeScratch() {
 
 /** Boot the real plugin entry with a mock host. */
 export async function bootPlugin({ config = {}, approvalOutcome = 'allowed-once', approvalService = true } = {}) {
+  // Tests must never claim the real global hotkeys: a listener started here would fight the
+  // running plugin for Ctrl+Alt+F12 (and put a window into the desktop capture).
+  process.env.DSH_DEXTER_NO_HOTKEYS = '1'
   const scratch = makeScratch()
   const previous = { ...process.env }
   process.env.DSH_HOME = join(scratch.dir, 'dsh-home')
@@ -171,6 +174,9 @@ export async function bootPlugin({ config = {}, approvalOutcome = 'allowed-once'
 
 /** Boot the kernel with fake backends: no input is ever injected. */
 export async function bootKernel({ config = {}, approvalOutcome = 'allowed-once', approvalService = true } = {}) {
+  // Tests must never claim the real global hotkeys: a listener started here would fight the
+  // running plugin for Ctrl+Alt+F12 (and put a window into the desktop capture).
+  process.env.DSH_DEXTER_NO_HOTKEYS = '1'
   const scratch = makeScratch()
   const previous = { ...process.env }
   process.env.DSH_DEXTER_DATA_DIR = join(scratch.dir, 'dexter')

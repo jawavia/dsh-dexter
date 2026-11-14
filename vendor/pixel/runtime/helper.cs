@@ -270,9 +270,30 @@ namespace ClickMatrixHelper
             Application.SetCompatibleTextRenderingDefault(false);
             Pump = new PumpForm();
             PumpHandle = Pump.Handle;
-            HotkeyRegistered = RegisterHotkeyWithRetry(PumpHandle, HOTKEY_ID, VK_F12, HotkeyCombo);
-            AbortHotkeyRegistered = RegisterHotkeyWithRetry(PumpHandle, ABORT_HOTKEY_ID, VK_F11, AbortHotkeyCombo);
-            SoftHotkeyRegistered = RegisterSoftHotkey();
+            // dsh-dexter patch (2026-11-14): when the host owns the global hotkeys itself
+            // (DSH_DEXTER_HOTKEYS=external) this helper must not claim them, or the host's
+            // listener would lose the registration race. "arm" releases only the arm combo,
+            // which keeps the helper's emergency stop (Ctrl+Alt+F11) intact. Everything else
+            // is unchanged.
+            string sharedHotkeys = Environment.GetEnvironmentVariable("DSH_DEXTER_HOTKEYS") ?? "";
+            bool releaseAll = string.Equals(sharedHotkeys, "external", StringComparison.OrdinalIgnoreCase);
+            bool releaseArm = releaseAll || string.Equals(sharedHotkeys, "arm", StringComparison.OrdinalIgnoreCase);
+            if (releaseAll)
+            {
+                HotkeyRegistered = false;
+                AbortHotkeyRegistered = false;
+                SoftHotkeyRegistered = false;
+                LogErr("hotkeys released to the host (DSH_DEXTER_HOTKEYS=external)");
+            }
+            else
+            {
+                HotkeyRegistered = releaseArm
+                    ? false
+                    : RegisterHotkeyWithRetry(PumpHandle, HOTKEY_ID, VK_F12, HotkeyCombo);
+                if (releaseArm) LogErr("arm hotkey released to the host (DSH_DEXTER_HOTKEYS=arm)");
+                AbortHotkeyRegistered = RegisterHotkeyWithRetry(PumpHandle, ABORT_HOTKEY_ID, VK_F11, AbortHotkeyCombo);
+                SoftHotkeyRegistered = RegisterSoftHotkey();
+            }
 
             Pump.BeginInvoke(new Action(StartIo));
             try
