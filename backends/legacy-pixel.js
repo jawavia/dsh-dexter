@@ -306,7 +306,10 @@ export async function createPixelBackend({ config, audit, approval = null, attac
     async view({ action, args = {}, exec = {} }) {
       if (!READ_ACTIONS.has(action)) return { ok: false, text: `legacy-pixel 不支持 view action=${action}` }
       const def = byName.get('screen_view')
-      const payload = { action, ...args }
+      // Our contract targets a window with a nested `window` object; the engine's
+      // `wait_window` wants those fields at the top level, so flatten them for it.
+      const window = args && typeof args.window === 'object' && args.window !== null ? args.window : null
+      const payload = { action, ...args, ...(action === 'wait_window' && window ? window : {}) }
       try {
         const value = await def.execute(payload, { agent: exec.agent, callId: exec.callId, signal: exec.signal })
         const text = rewriteToolMentions(value && typeof value.text === 'string' ? value.text : String(value ?? ''))
