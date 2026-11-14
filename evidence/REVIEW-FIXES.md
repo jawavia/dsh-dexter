@@ -45,14 +45,27 @@
 ## 验证
 
 ```
-node test/run-all.mjs        # 9/9 套件，235 项检查
-node tools/check-repo.mjs    # 89 文件，0 FAIL / 0 WARN（现在连 baseline/evidence 一起扫）
+node test/run-all.mjs        # 10/10 套件，247 项检查
+node tools/check-repo.mjs    # 129 文件，0 FAIL / 0 WARN（扫描含 baseline/evidence，vendor/ 只查清单与许可证）
 node tools/measure-surface.mjs dexter   # 4 工具 / 7,034 B
 node tools/e2e-live.mjs      # 真机闭环（Shell 开记事本 → 点 → 打 → 存 → 读回）
 node test/panel-probe.mjs    # 置顶 / 工具窗口 / 工作区内 / 不抢焦点
 node test/panel-click.mjs    # × 真的缩成边条
 node test/panel-reopen.mjs   # 关掉后面板能重开
 ```
+
+## 自包含安装（本轮新增）
+
+两个引擎已 vendor 进包：
+
+- `vendor/pixel`：dsh-click-matrix 0.9.5 + schemastery / cosmokit / @standard-schema；
+- `vendor/uia`：dsh-x2 0.6.0-local.1 + koffi 3.3.6 / @koromix（含原生 `koffi.node`）。
+
+全部是**未修改的 MIT 代码**，许可证随包（`THIRD-PARTY-NOTICES.md` 有版本/许可证/路径表）。
+解析顺序：显式配置 → `vendor/` → `DSH_DEXTER_LEGACY_ROOT` → `local.config.json` → 已安装包。
+
+**验证**：把仓库 clone 到空目录（无 `local.config.json`）后跑全套 → **10/10 套件、0 FAIL 0 WARN**；
+`test/09` 在隐藏本地配置的情况下启动整个插件，并断言审计行写着 `backends came from vendor`。
 
 ## 已知限制（明确保留，不假装修好）
 
@@ -61,5 +74,5 @@ node test/panel-reopen.mjs   # 关掉后面板能重开
 3. `focus` 会改前台，按只读动作处理但会留审计行。
 4. 人类暂停靠 150ms 轮询，不是内核钩子（最长约 160ms 反应）。
 5. 面板崩溃不会自动重启（避免把"我主动退出"也当成崩溃）；状态页会显示"未运行"。
-6. 自包含安装仍未做：依赖 `dsh-click-matrix` + `dsh-x2` 在位（D2）。
+6. ~~自包含安装~~ **已做**：引擎已 vendor（D2 已改写），见上节。
 7. A15（CI）仍未在 GitHub 上跑过：按 R8 不推送。

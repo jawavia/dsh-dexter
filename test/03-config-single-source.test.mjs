@@ -88,12 +88,14 @@ function walk(dir, out = []) {
 }
 
 const files = walk(REPO)
-const overridesReaders = files.filter((file) => /\.(mjs|js|json|yml)$/.test(file) && !file.includes(`${join('', 'test')}`))
+const overridesReaders = files.filter((file) => /\.(mjs|js|json|yml)$/.test(file) && !/[\\/]test[\\/]/.test(file))
   .filter((file) => /(readFileSync|writeFileSync|readFile|writeFile|openSync|join)\([^)]*config-overrides/.test(readFileSync(file, 'utf8')))
 report.eq('A6 no code path reads or writes config-overrides.json', overridesReaders, [])
 
 const maxTokensDeclarations = files
-  .filter((file) => /\.(mjs|js)$/.test(file) && !file.includes('test') && !file.includes('tools'))
+  // Exclude the tests themselves by directory, not by substring: a checkout under a path
+  // containing "test" used to hide every file and fail this assertion.
+  .filter((file) => /\.(mjs|js)$/.test(file) && !/[\\/]test[\\/]/.test(file) && !/[\\/]tools[\\/]/.test(file))
   .filter((file) => readFileSync(file, 'utf8').includes('imageMaxTokensPerTurn'))
   .map((file) => file.replace(REPO, '').replace(/^[\\/]/, ''))
 report.ok(

@@ -17,7 +17,7 @@ points at the file that contains the raw numbers.
 | A10 | stroke surface | 0 by default, exactly 1 toy, description 玩法/演示, `mode:"toy"` | 0 stroke tools by default; with toy: exactly `stroke_toy`, description matches, rows carry `mode:"toy"`; point cap enforced at 400 | **PASS** | `test/01`, `test/02`, `evidence/P4.md` |
 | A11 | behaviour equivalence | ≥ 19/20 | **19/20** identical outcome classes (dual-run, human pause off on both sides; an earlier quiet-desktop run gave 20/20); the one deliberate rule difference — `move` is gated in dexter, was not in pixel — is proven separately by `tools/rule-probe.mjs` | **PASS** | `evidence/P3.md`, `baseline/local/dual-run.json` |
 | A12 | no new elevation | 0 UAC, never requires admin | all runs as the normal user: `Elevated=False`, `User=<machine>\<user>`, 0 `consent.exe` processes; no step asks for elevation | **PASS** | this table + `evidence/P6.md` |
-| A13 | release compliance | LICENSE + THIRD-PARTY, 0 unknown licenses, no local paths/tokens/logs | MIT + THIRD-PARTY; in-repo scan 1 known / 0 unknown; prerequisites pixel MIT + uia MIT only; `check-repo: 88 files, 0 FAIL, 0 WARN` | **PASS** | `evidence/P6.md` |
+| A13 | release compliance | LICENSE + THIRD-PARTY, 0 unknown licenses, no local paths/tokens/logs | MIT + THIRD-PARTY; in-repo scan 1 known / 0 unknown; prerequisites pixel MIT + uia MIT only; `check-repo: 129 files, 0 FAIL, 0 WARN` | **PASS** | `evidence/P6.md` |
 | A14 | security docs | SECURITY.md with the five statements | present: local execution / zero outbound / per-action / audit is not a boundary / disclosure, plus threat model and out-of-scope list | **PASS** | `SECURITY.md`, `evidence/P6.md` |
 | A15 | CI | static-only, green | workflow written (static suites only, GUI tests excluded) and validated + reproduced locally by `tools/ci-local.mjs` (3/3); **never executed on GitHub** — no repository, and pushing is on hold by the human's rule | **PREPARED, NOT PROVEN** | `evidence/P6.md` |
 
@@ -44,7 +44,7 @@ release is A15 — which is itself gated by the human's standing no-push rule
 ## Reproduce
 
 ```
-node test/run-all.mjs                # 9/9 suites, 235 checks: surface, invariants, config,
+node test/run-all.mjs                # 10/10 suites, 247 checks: surface, invariants, config,
                                      #   output contract, compat, command contract
 node tools/measure-surface.mjs dexter
 node tools/audit-stats.mjs all
