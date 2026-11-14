@@ -110,7 +110,10 @@ application covering the chat (`panelEnabled`, default on):
 
 - **drag** it anywhere; **×** hides it to a 14 px tab on the right screen edge, click the
   tab to bring it back; **double-click** expands the detail line; **right-click** opens
-  *Reset to top-right · Toggle click-through · Exit panel*;
+  *Reset to top-right · Show/hide · Exit panel*. The same menu is on the tray icon, so a
+  strip dragged off-screen can always be recovered;
+- it is always clickable — there is **no click-through mode** on purpose: it is small and
+  draggable, so making it unclickable would only create a way to lose it;
 - it clamps itself to `Screen.WorkingArea`, which **excludes the taskbar**, so it cannot
   cover it — the old helper pill did, because it positioned itself against the full screen;
 - position is kept in `~/.dsh/dexter/panel-pos.txt`; the text comes from
@@ -118,9 +121,8 @@ application covering the chat (`panelEnabled`, default on):
 - it is a separate `Panel.exe`, compiled once with the in-box `csc` into
   `~/.dsh/dexter/panel/`; disabling the plugin reaps it (verified 1 → 0). If it ever
   lingers: `Get-Process Panel | Stop-Process -Force`;
-- **click-through has escape hatches**: once the panel is transparent the mouse cannot
-  reach its own menu, so the tray icon keeps the same menu, and `/dexter panel
-  through|off|show|hide|reset|exit` writes a one-shot command the panel polls;
+- `/dexter panel show|hide|reset|exit` writes a one-shot command the panel polls — useful
+  when the pointer is busy somewhere else;
 - there is **no Web-side widget**: an element inside the page disappears the moment another
   window covers the chat, which is exactly the case a status strip exists for.
 

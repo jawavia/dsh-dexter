@@ -45,29 +45,27 @@ const visibleOk = Boolean(visible)
 const state = existsSync(panel.paths.statePath) ? readFileSync(panel.paths.statePath, 'utf8').trim().split('\n') : []
 console.log('state file lines:', state)
 
-// The escape hatch from click-through: the tray icon cannot be asserted headlessly, but the
-// command file can — and it goes through the same SetClickThrough path.
-const exStyle = () => {
+// Click-through was removed on purpose: the strip is small and draggable, so it must always
+// stay clickable. Assert the window never carries WS_EX_TRANSPARENT, including after a
+// command from the plugin.
+const isTransparent = () => {
   const row = ps(['-File', join(REPO, 'tools', 'panel-windows.ps1'), '-ProcessId', String(pid)])
     .split('\n').find((line) => line.includes('visible=True')) || ''
   return row.includes('clickthrough=True')
 }
-const before = exStyle()
-panel.command('through-on')
-await sleep(1400)
-const afterOn = exStyle()
-panel.command('through-off')
-await sleep(1400)
-const afterOff = exStyle()
-console.log(`click-through: before=${before} afterOn=${afterOn} afterOff=${afterOff}`)
+const before = isTransparent()
+panel.command('show')
+await sleep(1200)
+const afterCommand = isTransparent()
+console.log(`click-through: before=${before} afterCommand=${afterCommand} (both must be false)`)
 
 panel.stop()
 await sleep(2000)
 const after = Number(ps(['-Command', '(Get-Process Panel -ErrorAction SilentlyContinue | Measure-Object).Count']))
 console.log('panel processes after stop:', after)
 
-const throughWorks = before === false && afterOn === true && afterOff === false
-const ok = start.ok && pid > 0 && visibleOk && topmost && inside && throughWorks && after === 0
-console.log(`checks: visible=${visibleOk} topmost=${topmost} insideWorkingArea=${inside} reaped=${after === 0}`)
+const alwaysClickable = before === false && afterCommand === false
+const ok = start.ok && pid > 0 && visibleOk && topmost && inside && alwaysClickable && after === 0
+console.log(`checks: visible=${visibleOk} topmost=${topmost} insideWorkingArea=${inside} alwaysClickable=${alwaysClickable} reaped=${after === 0}`)
 console.log(ok ? 'panel: OK' : 'panel: FAILED')
 process.exit(ok ? 0 : 1)

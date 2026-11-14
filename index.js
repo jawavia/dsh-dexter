@@ -142,8 +142,7 @@ function commandHelp() {
     '  clear                   解除急停标记（不恢复授权）',
     '  panel                   桌面面板：显示/唤回',
     '  panel hide|reset        缩成屏幕边条 / 复位到右上角',
-    '  panel through           开关注入穿透（穿透后右键点不到面板，用托盘图标或这条命令恢复）',
-    '  panel off|on            明确关闭/打开穿透',
+    '  panel exit              关掉面板（重启插件会再出现）',
     '  数值长期改法：插件设置里的 armMinutes / armActions / maxActionsPerMinute',
   ].join('\n')
 }
@@ -425,7 +424,7 @@ export function apply(ctx, rawConfig = {}) {
       const dispose = commands.register({
         name: 'dexter',
         description: '桌面 hands（人类专用）：状态、开会话授权、续期、急停',
-        input: { hint: 'status | arm [30m] [200] | extend | stop | clear | panel [show|hide|reset|through|off|exit]' },
+        input: { hint: 'status | arm [30m] [200] | extend | stop | clear | panel [show|hide|reset|exit]' },
         handler: (invocation) => {
           const raw = String((invocation && (invocation.input ?? invocation.args ?? invocation.text)) ?? '').trim()
           const [verb, a, b] = raw.split(/\s+/)
@@ -457,23 +456,13 @@ export function apply(ctx, rawConfig = {}) {
             return cleared ? '已解除急停标记（授权仍然是空的，需要 /dexter arm 才能动手）。' : '当前没有急停标记。'
           }
           if (verbName === 'panel') {
-            // The keyboard-free way back from click-through, and a way to move/hide the
-            // strip when the pointer is busy somewhere else.
+            // A keyboard-free way to move/hide the strip; click-through was removed — the
+            // strip is small and draggable, so there is no reason to make it unclickable.
             if (!panel) return '桌面面板没有启用（配置 panelEnabled=false，或编译失败——看插件日志）。'
             const what = (a || 'show').toLowerCase()
-            const map = {
-              show: 'show',
-              hide: 'hide',
-              reset: 'reset',
-              exit: 'exit',
-              through: 'through-toggle',
-              'through-on': 'through-on',
-              on: 'through-on',
-              'through-off': 'through-off',
-              off: 'through-off',
-            }
+            const map = { show: 'show', hide: 'hide', reset: 'reset', exit: 'exit' }
             const command = map[what]
-            if (!command) return `未知的面板操作：${what}（可用 show/hide/reset/through/on/off/exit）`
+            if (!command) return `未知的面板操作：${what}（可用 show / hide / reset / exit）`
             const result = panel.command(command)
             return result.ok ? `面板命令已发送：${command}` : `面板命令失败：${result.reason}`
           }
