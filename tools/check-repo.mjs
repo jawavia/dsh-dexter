@@ -137,6 +137,20 @@ function resolveLegacyRoot() {
     return ''
   }
 }
+// The vendored engines are the ones a fresh install uses, so their licenses are checked
+// first; a machine-level installation is checked too when one is wired up.
+const vendoredLicenses = []
+for (const [name, dir] of [['pixel', 'vendor/pixel'], ['uia', 'vendor/uia']]) {
+  const license = licenseOf(join(REPO, dir))
+  vendoredLicenses.push({ engine: name, source: 'vendor', ...(license || { name: '(not found)', license: 'MISSING' }) })
+}
+for (const entry of vendoredLicenses) {
+  if (!entry.license || entry.license === 'UNKNOWN' || entry.license === 'MISSING') {
+    fail(`vendored engine ${entry.engine} (${entry.name}) has no license file`)
+  } else {
+    info(`vendored engine ${entry.engine}: ${entry.name} ${entry.license}`)
+  }
+}
 const root = resolveLegacyRoot()
 const runtimeLicenses = []
 if (root) {
