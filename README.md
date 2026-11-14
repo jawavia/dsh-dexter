@@ -87,6 +87,22 @@ from a human's command or hotkey, and each use is a separate audit row
 
 ## Configuration
 
+Three numbers are meant to be changed often, so they are **volatile** and appear as a form
+on DSH's Settings page (`armMinutes` / `armActions` / `maxActionsPerMinute`): the form writes
+the profile patch and the plugin reads the new value without a reload.
+
+Every other key is ordinary and lives in the profile patch; change one with
+`/dexter set <key> <value>` (validated against the field spec, persisted through the host
+config editor), or edit the patch directly:
+
+```yaml
+- id: dsh-dexter
+  config:
+    askOnWrite: true
+    hoverFree: true
+```
+## Configuration
+
 Every key is declared once, in `kernel/config.js` (`FIELD_SPEC`), and exposed to
 Plugin Manager as one schema — that page is the single place to change numbers. There
 is no `config-overrides.json` and no second precedence rule. A profile-level patch can

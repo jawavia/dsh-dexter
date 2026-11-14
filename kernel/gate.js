@@ -29,8 +29,12 @@ export class Gate {
    * @param {object|null} [options.approval] host approval service
    * @param {() => number} [options.clock]
    */
-  constructor({ config, audit, approval = null, clock = () => Date.now() } = {}) {
+  constructor({ config, audit, approval = null, live = null, clock = () => Date.now() } = {}) {
     this.config = config
+    // Volatile settings (armMinutes / armActions / maxActionsPerMinute) update in place when
+    // the human changes them in DSH's Settings page; read them through this accessor so a
+    // cached snapshot does not keep the old numbers.
+    this.live = typeof live === 'function' ? live : (key) => config[key]
     this.audit = audit
     this.approval = approval
     this.now = clock
@@ -76,7 +80,7 @@ export class Gate {
 
   /** Sliding-window rate cap. Returns 0 when allowed, else ms to wait. */
   #rateWait(need = 1) {
-    const limit = this.config.maxActionsPerMinute
+    const limit = this.live('maxActionsPerMinute')
     if (!limit || limit <= 0) return 0
     const now = this.now()
     this.actionTimes = this.actionTimes.filter((at) => now - at < RATE_WINDOW_MS)
@@ -100,8 +104,8 @@ export class Gate {
     if (!GRANT_SOURCES.has(source)) {
       return { ok: false, error: `未知授权来源 "${source}"：只有人手（热键/命令）能开授权。` }
     }
-    const minutesValue = clampInt(minutes, 1, 480, this.config.armMinutes)
-    const actionLimit = clampInt(actions, 1, 5000, this.config.armActions)
+    const minutesValue = clampInt(minutes, 1, 480, this.live('armMinutes'))
+    const actionLimit = clampInt(actions, 1, 5000, this.live('armActions'))
     this.stopped = null
     this.grant = {
       minutes: minutesValue,
@@ -117,7 +121,7 @@ export class Gate {
       decision: 'grant-opened',
       approval: 'session',
       source,
-      result: `minutes=${minutesValue} actions=${actionLimit} rate=${this.config.maxActionsPerMinute}/min`,
+      result: `minutes=${minutesValue} actions=${actionLimit} rate=${this.live('maxActionsPerMinute')}/min`,
     })
     return { ok: true, grant: this.snapshot().grant }
   }
@@ -135,8 +139,8 @@ export class Gate {
       }
       return this.openGrant({ minutes, actions, source })
     }
-    const extraMinutes = clampInt(minutes, 1, 480, this.config.armMinutes)
-    const extraActions = clampInt(actions, 1, 5000, this.config.armActions)
+    const extraMinutes = clampInt(minutes, 1, 480, this.live('armMinutes'))
+    const extraActions = clampInt(actions, 1, 5000, this.live('armActions'))
     this.grant.minutes += extraMinutes
     this.grant.actions += extraActions
     this.grant.expiresAt += extraMinutes * 60000
@@ -216,7 +220,7 @@ export class Gate {
         allowed: false,
         approval: 'none',
         retryAfterMs: wait,
-        reason: `⛔ 频率上限：最近 60 秒已经执行 ${this.config.maxActionsPerMinute} 次写动作，这一批需要 ${charge} 次，请等 ${Math.ceil(wait / 1000)} 秒（或调高 maxActionsPerMinute）。`,
+        reason: `⛔ 频率上限：最近 60 秒已经执行 ${this.live('maxActionsPerMinute')} 次写动作，这一批需要 ${charge} 次，请等 ${Math.ceil(wait / 1000)} 秒（或调高 maxActionsPerMinute）。`,
       }
     }
 
@@ -330,7 +334,7 @@ export class Gate {
         }
         : null,
       rate: {
-        limitPerMinute: this.config.maxActionsPerMinute,
+        limitPerMinute: this.live('maxActionsPerMinute'),
         lastMinute: this.actionTimes.filter((at) => now - at < RATE_WINDOW_MS).length,
       },
       approvalChannel: this.hasApprovalChannel() ? 'platform' : 'none',

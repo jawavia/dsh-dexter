@@ -9,7 +9,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { createReport } from './assert.mjs'
-import { fieldSpec, buildSchema, DEFAULTS, normalizeConfig, FIELD_SPEC } from '../kernel/config.js'
+import { fieldSpec, buildSchema, DEFAULTS, normalizeConfig, FIELD_SPEC, liveConfig } from '../kernel/config.js'
 
 const report = createReport('config single source')
 const REPO = join(import.meta.dirname, '..')
@@ -68,7 +68,20 @@ if (pluginModule.Config) {
   report.ok('the schema carries every editable key', keys.length >= Object.keys(FIELD_SPEC).length, `${keys.length} fields`)
   for (const key of ['armMinutes', 'armActions', 'maxActionsPerMinute']) {
     report.ok(`the settings page shows ${key}`, keys.includes(key))
+    // DSH renders only volatile fields, so these three must carry the flag or the form
+    // would be empty again.
+    const entry = dict ? dict[key] : null
+    const meta = entry && entry.meta ? entry.meta : entry
+    report.ok(`${key} is volatile (so the form renders it)`, Boolean(meta && meta.volatile === true), JSON.stringify(meta && meta.volatile))
   }
+  // A volatile field reaches apply() as { get() }; normalizeConfig must unwrap it.
+  const volatileStub = {
+    armMinutes: { get: () => 42 },
+    armActions: 7,
+  }
+  const unwrapped = normalizeConfig(volatileStub)
+  report.ok('normalizeConfig unwraps volatile fields', unwrapped.armMinutes === 42 && unwrapped.armActions === 7, `${unwrapped.armMinutes}/${unwrapped.armActions}`)
+  report.ok('liveConfig reads the volatile value at call time', liveConfig(volatileStub, unwrapped, 'armMinutes') === 42)
 }
 
 const schema = buildSchema(fakeZ())

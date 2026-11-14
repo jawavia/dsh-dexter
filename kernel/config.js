@@ -244,9 +244,44 @@ export function normalizeConfig(raw) {
   const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
   const out = {}
   for (const [key, field] of Object.entries(FIELD_SPEC)) {
-    out[key] = coerce(source[key], field)
+    out[key] = coerce(unwrapVolatile(source[key]), field)
   }
   return Object.freeze(out)
+}
+
+/** A volatile schema field arrives as `{ get() }`; everything else is already a value. */
+export function unwrapVolatile(value) {
+  if (value && typeof value === 'object' && typeof value.get === 'function') {
+    try {
+      return value.get()
+    } catch {
+      return undefined
+    }
+  }
+  return value
+}
+
+/**
+ * The keys the human tunes while the plugin runs. They are declared `.volatile()` so DSH's
+ * Settings page renders a form for them (it only shows volatile fields), and they must be
+ * read through `liveConfig()` rather than snapshotted at apply time.
+ */
+export const VOLATILE_KEYS = Object.freeze(['armMinutes', 'armActions', 'maxActionsPerMinute'])
+
+/**
+ * Read one key live: volatile fields update in place without a plugin reload, so a cached
+ * snapshot would be stale. Falls back to the normalized value when the host handed us a
+ * plain object (tests, or a profile without volatility).
+ */
+export function liveConfig(raw, normalized, key) {
+  const source = raw && typeof raw === 'object' ? raw[key] : undefined
+  if (source && typeof source === 'object' && typeof source.get === 'function') {
+    try {
+      const value = source.get()
+      if (value !== undefined && value !== null) return coerce(value, FIELD_SPEC[key])
+    } catch { /* fall through to the snapshot */ }
+  }
+  return normalized ? normalized[key] : coerce(source, FIELD_SPEC[key])
 }
 
 /**
@@ -263,6 +298,9 @@ export function buildSchema(z) {
       item = z.number().min(field.min ?? 0).max(field.max ?? Number.MAX_SAFE_INTEGER).step(1).default(field.default)
     } else if (field.type === 'enum') item = z.union(field.values.map((value) => z.const(value))).default(field.default)
     else item = z.string().default(field.default)
+    // DSH's Settings page renders only volatile fields; the tunable numbers are exactly the
+    // ones a human should change from the UI without editing a YAML patch.
+    if (VOLATILE_KEYS.includes(key) && typeof item.volatile === 'function') item = item.volatile()
     shape[key] = item.description(field.desc)
   }
   return z.object(shape)

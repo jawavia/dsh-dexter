@@ -19,7 +19,7 @@ import { Gate } from './kernel/gate.js'
 import { HumanActivity } from './kernel/human.js'
 import { Kernel } from './kernel/kernel.js'
 import { StopBus } from './kernel/stopbus.js'
-import { buildSchema, DEFAULTS, describeConfig, normalizeConfig, fieldSpec, EDITABLE_KEYS } from './kernel/config.js'
+import { buildSchema, DEFAULTS, describeConfig, normalizeConfig, fieldSpec, EDITABLE_KEYS, liveConfig } from './kernel/config.js'
 import { dataDir, shortText } from './kernel/util.js'
 import { createPixelBackend } from './backends/legacy-pixel.js'
 import { createToyDrawer } from './backends/toy-draw.js'
@@ -226,14 +226,17 @@ function parseArmArgs(first, second, config) {
   if (given.length > 0 && parsedFirst === null && parsedSecond === null) {
     return { error: `看不懂的参数：${given.join(' ')}。用法：/dexter arm [45m] [300]` }
   }
-  const minutes = (parsedFirst && parsedFirst.minutes) || (parsedSecond && parsedSecond.minutes) || config.armMinutes
-  const actions = (parsedSecond && parsedSecond.actions) || (parsedFirst && parsedFirst.actions) || config.armActions
+  const minutes = (parsedFirst && parsedFirst.minutes) || (parsedSecond && parsedSecond.minutes) || live('armMinutes')
+  const actions = (parsedSecond && parsedSecond.actions) || (parsedFirst && parsedFirst.actions) || live('armActions')
   if (minutes < 1 || actions < 1) return { error: '时长和次数都要 > 0。' }
   return { minutes, actions }
 }
 
 export function apply(ctx, rawConfig = {}) {
   const config = normalizeConfig(rawConfig)
+  // Volatile fields (armMinutes / armActions / maxActionsPerMinute) update in place when the
+  // human edits them in DSH's Settings page; everything that uses them reads through this.
+  const live = (key) => liveConfig(rawConfig, config, key)
   const version = readVersion()
   const logger = (message) => {
     try {
@@ -258,7 +261,7 @@ export function apply(ctx, rawConfig = {}) {
   })
 
   const approval = getService(ctx, 'approval')
-  const gate = new Gate({ config, audit, approval })
+  const gate = new Gate({ config, audit, approval, live })
   const attachments = getService(ctx, 'attachments')
   // Parsed once: the stop bus, the hotkey probe and the kernel's reserved-combo check all
   // read the same values, and the kernel is constructed before the bus.
@@ -283,17 +286,17 @@ export function apply(ctx, rawConfig = {}) {
     },
     // Ctrl+Alt+F12: open a session with the configured numbers; Ctrl+Alt+F10: extend it.
     onArm: () => {
-      const result = gate.openGrant({ minutes: config.armMinutes, actions: config.armActions, source: 'hotkey' })
+      const result = gate.openGrant({ minutes: live('armMinutes'), actions: live('armActions'), source: 'hotkey' })
       if (result.ok) {
         gate.clearStop('human')
         stopbus.clear()
-        logger(`${comboLabel(combos.arm)} 授权：${config.armMinutes} 分钟 / ${config.armActions} 次（频率 ${config.maxActionsPerMinute}/分）`)
+        logger(`${comboLabel(combos.arm)} 授权：${live('armMinutes')} 分钟 / ${live('armActions')} 次（频率 ${live('maxActionsPerMinute')}/分）`)
       } else {
         logger(`${comboLabel(combos.arm)} 授权失败：${result.error}`)
       }
     },
     onExtend: () => {
-      const result = gate.extendGrant({ minutes: config.armMinutes, actions: config.armActions, source: 'hotkey' })
+      const result = gate.extendGrant({ minutes: live('armMinutes'), actions: live('armActions'), source: 'hotkey' })
       if (result.ok) {
         const grant = result.grant
         logger(`${comboLabel(combos.extend)} 续期：现在 ${grant.actions} 次 / 剩 ${Math.round(grant.remainingMs / 1000)}s`)
@@ -399,6 +402,14 @@ export function apply(ctx, rawConfig = {}) {
   // ---- tools ---------------------------------------------------------------
   const statusText = ({ tail } = {}) => formatStatus({
     ...kernel.status({ tail: typeof tail === 'number' ? Math.max(1, Math.min(40, tail)) : 8 }),
+    // The three tunable numbers are volatile: show what they are *now*, not what they were
+    // when the plugin was applied (the Settings page can change them without a reload).
+    config: describeConfig({
+      ...config,
+      armMinutes: live('armMinutes'),
+      armActions: live('armActions'),
+      maxActionsPerMinute: live('maxActionsPerMinute'),
+    }),
     lastView: { ...kernel.status({ tail: 0 }).lastView, requireFreshSeconds: config.requireFreshLookSeconds },
     // Refresh the probe: after the pixel helper starts it may claim F11/F12, so the answer
     // taken at apply time can be stale (four register/unregister pairs, cheap).
@@ -522,11 +533,11 @@ export function apply(ctx, rawConfig = {}) {
             const result = gate.openGrant({ minutes: parsed.minutes, actions: parsed.actions, source: 'command' })
             if (!result.ok) return bad(`授权失败：${result.error}`)
             gate.clearStop('human')
-            return ok(`已开授权：${parsed.minutes} 分钟内最多 ${parsed.actions} 次写动作（频率上限 ${config.maxActionsPerMinute}/分）。`
+            return ok(`已开授权：${parsed.minutes} 分钟内最多 ${parsed.actions} 次写动作（频率上限 ${live('maxActionsPerMinute')}/分）。`
               + `\n系统/安全类目标仍然永久禁止；聊天/邮件/支付类仍需逐条批准。到期或按 Esc 即失效。`)
           }
           if (verbName === 'extend') {
-            const result = gate.extendGrant({ minutes: Number(a) || config.armMinutes, actions: Number(b) || config.armActions, source: 'command' })
+            const result = gate.extendGrant({ minutes: Number(a) || live('armMinutes'), actions: Number(b) || live('armActions'), source: 'command' })
             if (!result.ok) return bad(`续期失败：${result.error}`)
             const grant = result.grant
             return ok(`已续期：现在共 ${grant.actions} 次 / 剩 ${Math.round(grant.remainingMs / 1000)}s。`)
