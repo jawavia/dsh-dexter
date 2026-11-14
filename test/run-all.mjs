@@ -15,6 +15,7 @@ const STEPS = [
   ['03-config-single-source.test.mjs', 'A6 config'],
   ['04-tool-output.test.mjs', 'tool output contract'],
   ['05-compat.test.mjs', 'compat / edge cases'],
+  ['06-command.test.mjs', 'command contract'],
   [join('..', 'tools', 'check-repo.mjs'), 'A13 repository hygiene'],
 ]
 

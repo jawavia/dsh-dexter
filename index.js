@@ -170,6 +170,12 @@ function parseArmArgs(first, second, config) {
   }
   const parsedFirst = read(first, 'minutes')
   const parsedSecond = read(second, 'actions')
+  // A typo must not silently arm with the defaults: if a token was given and could not be
+  // understood, say so instead of guessing ("arm nonsense" armed 15m/100 before this).
+  const given = [first, second].filter((token) => token !== undefined && String(token).trim() !== '')
+  if (given.length > 0 && parsedFirst === null && parsedSecond === null) {
+    return { error: `看不懂的参数：${given.join(' ')}。用法：/dexter arm [45m] [300]` }
+  }
   const minutes = (parsedFirst && parsedFirst.minutes) || (parsedSecond && parsedSecond.minutes) || config.armMinutes
   const actions = (parsedSecond && parsedSecond.actions) || (parsedFirst && parsedFirst.actions) || config.armActions
   if (minutes < 1 || actions < 1) return { error: '时长和次数都要 > 0。' }
@@ -431,47 +437,51 @@ export function apply(ctx, rawConfig = {}) {
         description: '桌面 hands（人类专用）：状态、开会话授权、续期、急停',
         input: { hint: 'status | arm [30m] [200] | extend | stop | clear | panel [show|hide|reset|exit]' },
         handler: (invocation) => {
+          // The gateway requires a CommandResult: { kind: 'success'|'error', text }.
+          // A bare string is rejected with "command handler must return a CommandResult".
+          const ok = (text) => ({ kind: 'success', text: String(text) })
+          const bad = (text) => ({ kind: 'error', text: String(text) })
           const raw = String((invocation && (invocation.input ?? invocation.args ?? invocation.text)) ?? '').trim()
           const [verb, a, b] = raw.split(/\s+/)
           const verbName = (verb || 'status').toLowerCase()
           if (verbName === 'status' || verbName === '') {
-            return commandStatus()
+            return ok(commandStatus())
           }
           if (verbName === 'arm' || verbName === 'latch') {
             const parsed = parseArmArgs(a, b, config)
-            if (parsed.error) return parsed.error
+            if (parsed.error) return bad(parsed.error)
             const result = gate.openGrant({ minutes: parsed.minutes, actions: parsed.actions, source: 'command' })
-            if (!result.ok) return `授权失败：${result.error}`
+            if (!result.ok) return bad(`授权失败：${result.error}`)
             gate.clearStop('human')
-            return `已开授权：${parsed.minutes} 分钟内最多 ${parsed.actions} 次写动作（频率上限 ${config.maxActionsPerMinute}/分）。`
-              + `\n系统/安全类目标仍然永久禁止；聊天/邮件/支付类仍需逐条批准。到期或按 Esc 即失效。`
+            return ok(`已开授权：${parsed.minutes} 分钟内最多 ${parsed.actions} 次写动作（频率上限 ${config.maxActionsPerMinute}/分）。`
+              + `\n系统/安全类目标仍然永久禁止；聊天/邮件/支付类仍需逐条批准。到期或按 Esc 即失效。`)
           }
           if (verbName === 'extend') {
             const result = gate.extendGrant({ minutes: Number(a) || 0, actions: Number(b) || 0, source: 'command' })
-            if (!result.ok) return `续期失败：${result.error}`
+            if (!result.ok) return bad(`续期失败：${result.error}`)
             const grant = result.grant
-            return `已续期：现在共 ${grant.actions} 次 / 剩 ${Math.round(grant.remainingMs / 1000)}s。`
+            return ok(`已续期：现在共 ${grant.actions} 次 / 剩 ${Math.round(grant.remainingMs / 1000)}s。`)
           }
           if (verbName === 'stop') {
             kernel.stop({ level: 'hard', by: 'human', reason: '/dexter stop' })
-            return '已急停：授权已撤销。下一次写动作会被拒绝，直到重新 /dexter arm。'
+            return ok('已急停：授权已撤销。下一次写动作会被拒绝，直到重新 /dexter arm。')
           }
           if (verbName === 'clear') {
             const cleared = gate.clearStop('human')
-            return cleared ? '已解除急停标记（授权仍然是空的，需要 /dexter arm 才能动手）。' : '当前没有急停标记。'
+            return ok(cleared ? '已解除急停标记（授权仍然是空的，需要 /dexter arm 才能动手）。' : '当前没有急停标记。')
           }
           if (verbName === 'panel') {
             // A keyboard-free way to move/hide the strip; click-through was removed — the
             // strip is small and draggable, so there is no reason to make it unclickable.
-            if (!panel) return '桌面面板没有启用（配置 panelEnabled=false，或编译失败——看插件日志）。'
+            if (!panel) return bad('桌面面板没有启用（配置 panelEnabled=false，或编译失败——看插件日志）。')
             const what = (a || 'show').toLowerCase()
             const map = { show: 'show', hide: 'hide', reset: 'reset', exit: 'exit' }
             const command = map[what]
-            if (!command) return `未知的面板操作：${what}（可用 show / hide / reset / exit）`
+            if (!command) return bad(`未知的面板操作：${what}（可用 show / hide / reset / exit）`)
             const result = panel.command(command)
-            return result.ok ? `面板命令已发送：${command}` : `面板命令失败：${result.reason}`
+            return result.ok ? ok(`面板命令已发送：${command}`) : bad(`面板命令失败：${result.reason}`)
           }
-          return commandHelp()
+          return ok(commandHelp())
         },
       })
       if (typeof dispose === 'function') disposers.push(dispose)
