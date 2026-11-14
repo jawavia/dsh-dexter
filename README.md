@@ -1,11 +1,12 @@
 # dsh-dexter
 
-Windows-only desktop hands for DeepSeek Harness.
+**The internal upgrade of `dsh-click-matrix` (v0.9.5)** — not a new product, and not
+published anywhere.
 
-One bundle, one settings page, one authorization gate, one audit trail, four
-model-facing tools. The proven injection code is **not** rewritten: the pixel engine
-and the UIA engine stay where they are, behind two adapters, and the kernel owns
-everything around them (routing, authorization, human pause, verification, audit).
+Same pixel injection underneath (the engine is vendored, unmodified), with the layer
+around it rewritten: four model-facing tools instead of fourteen, one bounded
+authorization instead of a latch, one hash-chained audit instead of per-engine files.
+One settings page, one gate, one trail.
 
 ## Tools
 
@@ -41,10 +42,11 @@ human grants again. A `stop.signal` file in the data root is honoured too.
 
 ## Install (local bundle)
 
-> **Not installed here, by request.** This repository is deliberately local-only:
-> nothing is pushed, published or enabled in a live profile until acceptance is
-> mature. Installing it next to `dsh-desktop-hands` would put two tool sets and two
-> gates on one desktop (see the warnings below).
+> **Internal only.** This is the upgrade path for `dsh-click-matrix`, installed in this
+> profile; it is not published to npm and has no public release. The old
+> `dsh-desktop-hands` bundle stays installed but **disabled**: enabling both would put
+> two tool sets and two gates on one desktop, and their helpers would fight over the
+> same global hotkeys. See `docs/MIGRATION.md` for what moved where.
 
 1. The plugin is a bundle: `package.json` declares `dsh.bundle.patch`.
 2. From DSH: **Plugins → Add plugin →** pick this directory (or install it with the
@@ -57,8 +59,9 @@ human grants again. A `stop.signal` file in the data root is honoured too.
    - `local.config.json` next to this package (`{ "legacyRoot": "…" }`, git-ignored),
    - the packages installed next to this one in the profile.
    Resolution order: config → `vendor/` → env root → `local.config.json` → package.
-4. Do **not** enable the old `dsh-desktop-hands` bundle at the same time: the tools
-   would be duplicated and two gates would guard the same desktop.
+4. Keep the old `dsh-desktop-hands` bundle **disabled** (it is on purpose: two gates
+   on one desktop and two helpers competing for Ctrl+Alt+F11). `docs/MIGRATION.md` maps
+   the old tool names, commands and defaults onto the new ones.
 
 `hands_status` reports which engines resolved and from where. A missing engine is
 reported per tool call, never silently ignored.
