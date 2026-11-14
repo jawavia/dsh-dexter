@@ -1,7 +1,7 @@
 {
   "source": {
     "kind": "dexter",
-    "dir": "D:\\DEEPSEEKworkplace\\dsh-dexter"
+    "dir": "<repo>"
   },
   "tools": [
     {
@@ -15,38 +15,38 @@
     },
     {
       "name": "hands_act",
-      "descChars": 168,
-      "descBytes": 368,
+      "descChars": 182,
+      "descBytes": 408,
       "paramCount": 19,
-      "paramSchemaBytes": 1772,
+      "paramSchemaBytes": 1820,
       "outputSchemaBytes": 106,
-      "subtotal": 2246
+      "subtotal": 2334
     },
     {
       "name": "hands_run",
       "descChars": 100,
       "descBytes": 250,
       "paramCount": 4,
-      "paramSchemaBytes": 1650,
+      "paramSchemaBytes": 1830,
       "outputSchemaBytes": 106,
-      "subtotal": 2006
+      "subtotal": 2186
     },
     {
       "name": "hands_status",
-      "descChars": 55,
-      "descBytes": 157,
-      "paramCount": 1,
-      "paramSchemaBytes": 151,
+      "descChars": 79,
+      "descBytes": 205,
+      "paramCount": 2,
+      "paramSchemaBytes": 263,
       "outputSchemaBytes": 106,
-      "subtotal": 414
+      "subtotal": 574
     }
   ],
   "totals": {
     "tools": 4,
-    "descBytes": 1149,
-    "paramSchemaBytes": 5033,
+    "descBytes": 1237,
+    "paramSchemaBytes": 5373,
     "outputSchemaBytes": 424,
-    "totalBytes": 6606
+    "totalBytes": 7034
   },
   "names": [
     "hands_act",
@@ -55,7 +55,7 @@
     "hands_view"
   ],
   "logs": [
-    "warn [dexter] legacy-uia 不可用，热键/人类暂停检测关闭：找不到 dsh-x2：请设置 legacyUiaPath、DSH_DEXTER_LEGACY_ROOT，或把它装在本插件旁边",
-    "warn [dexter] ready: 4 tools [hands_view, hands_act, hands_run, hands_status] · mode=per-action armTtl=120s readOnly=false verify=foreground human=20000ms freshLook=120s images=12/8000tok toy=off"
+    "warn [dexter] 热键占用：CTRL+ALT+F12、CTRL+ALT+F11、CTRL+SHIFT+F11（急停热键被占时 pixel 引擎会拒绝注入——先关掉占用它的程序，或重启 DSH 让 helper 重新注册）",
+    "warn [dexter] ready: 4 tools [hands_view, hands_act, hands_run, hands_status] · arm=15m/100次 askOnWrite=true rate=30/min sensitiveAsk=true readOnly=false verify=foreground human=20000ms freshLook=120s images=12/8000tok toy=off"
   ]
 }

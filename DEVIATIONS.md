@@ -97,11 +97,12 @@ default (per-write asking), and every session carries both bounds plus a rate ca
 `kernel/config.js:FIELD_SPEC`, so Plugin Manager shows exactly one settings page for
 this plugin row. The previous bundle had a custom web-UI section (pixel
 `client.js:392`) and no section at all for the other two engines.
-**Deviation:** dsh-dexter ships no client (web) plugin, so there is no bespoke panel
-with sliders/buttons — the plugin's own config form is the page.
-**Why:** a client plugin would be a second place to declare defaults, and the profile
+**Deviation:** the plugin's own config form is the settings page; there is no bespoke
+settings panel with sliders. A small `client.js` exists, but only for two composer
+buttons (授权 / 面板) — it declares no defaults and holds no state.
+**Why:** a settings UI would be a second place to declare defaults, and the profile
 config row is already the single source. `hands_status` and `/dexter status` carry
-the live state that a panel would have shown.
+the live state, and the desktop panel shows it when the DSH window is covered.
 **Evidence:** `evidence/P1.md`, `test/03-config-single-source.test.mjs` (schema
 defaults == runtime defaults).
 
@@ -179,7 +180,12 @@ process and would be a new global hook with its own failure modes.
 
 ---
 
-## D7 — `move` is authorized (deliberate strengthening)
+## D7 — `move` is authorized (partly superseded by D13)
+
+> **Superseded in part by D13** (2026-11-14): a bare hover is now free — authorized by
+> policy, still audited, still rate-capped, and refused while a mouse button is held.
+> What D7 keeps: `move` is never *silent*; it always produces an audit row, and inside a
+> batch it still spends a credit.
 
 **Evidence:** dual-run scenario "write without any authorization": the old engine
 moved the cursor with no authorization at all (`lib/access.js:584` `checkMove` only

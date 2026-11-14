@@ -5,7 +5,7 @@ name: static checks
 # desktop, so they are deliberately NOT part of this workflow.
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
   workflow_dispatch:
 

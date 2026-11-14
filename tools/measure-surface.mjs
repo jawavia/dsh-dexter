@@ -87,7 +87,7 @@ async function measureLegacy(oldRoot) {
   }
   const total = weighSurface(all)
   return {
-    source: { kind: 'legacy', root },
+    // Publishable output: a machine path in a tracked baseline is a leak (R7/A13).\n    source: { kind: 'legacy', root: '<legacy-root>' },
     baseline: baseline.totals,
     groups,
     totals: total.totals,
@@ -102,7 +102,7 @@ async function measureDexter(repoRoot) {
   const result = await capture({ dir })
   try {
     const measured = weighSurface(result.tools)
-    return { source: { kind: 'dexter', dir }, ...measured, names: result.tools.map((def) => def.name).sort(), logs: result.logs.slice(0, 40) }
+    return { source: { kind: 'dexter', dir: '<repo>' }, ...measured, names: result.tools.map((def) => def.name).sort(), logs: result.logs.slice(0, 40) }
   } finally {
     result.cleanup()
   }

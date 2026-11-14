@@ -6,7 +6,7 @@ points at the file that contains the raw numbers.
 | # | Criterion | Target | Measured | Verdict | Evidence |
 |---|---|---|---|---|---|
 | A1 | default visible tools | 4 (5 with toy) | **4** (`hands_view/act/run/status`), **5** with `toyStrokeEnabled` | **PASS** | `test/01-surface.test.mjs` 19/19; `baseline/new.json` |
-| A2 | default schema bytes | ≤ 12,000 | **6,854 B** (7,691 B with toy) vs 35,201 B baseline → −80.5 % | **PASS** | `evidence/P2.md`, `baseline/new.json` |
+| A2 | default schema bytes | ≤ 12,000 | **7,034 B** (7,691 B with toy) vs 35,201 B baseline → −80.5 % | **PASS** | `evidence/P2.md`, `baseline/new.json` |
 | A3 | write-side duplication | 0 | each of move/click/drag/scroll/type/key/hotkey/clipboard owned by `hands_act` only; one implementation (`kernel.js#runOne`) | **PASS** | `test/01-surface.test.mjs` |
 | A4 | single audit stream | 1 `hands.jsonl`, no control/stroke files | live run: 1 file; control/stroke trails absent; legacy pixel trail = 1 `loaded` marker only | **PASS (with D8)** | `evidence/P3.md`, `evidence/P5.md` |
 | A5 | audit completeness | 20 actions → 20 rows | unit: 20/20; live: every write has approval + verify + argsHash; the e2e run added 3 executed rows for 3 writes | **PASS** | `evidence/P5.md`, `evidence/E2E.md` |
@@ -16,8 +16,8 @@ points at the file that contains the raw numbers.
 | A9 | human pause | ≤2 s suspend, resume after idle, all backends | live hook **59 ms**, real key **434 ms**, resume audited before the executed row, 0 spurious suspends from our own moves | **PASS** | `evidence/P5.md` |
 | A10 | stroke surface | 0 by default, exactly 1 toy, description 玩法/演示, `mode:"toy"` | 0 stroke tools by default; with toy: exactly `stroke_toy`, description matches, rows carry `mode:"toy"`; point cap enforced at 400 | **PASS** | `test/01`, `test/02`, `evidence/P4.md` |
 | A11 | behaviour equivalence | ≥ 19/20 | **19/20** identical outcome classes (dual-run, human pause off on both sides; an earlier quiet-desktop run gave 20/20); the one deliberate rule difference — `move` is gated in dexter, was not in pixel — is proven separately by `tools/rule-probe.mjs` | **PASS** | `evidence/P3.md`, `baseline/local/dual-run.json` |
-| A12 | no new elevation | 0 UAC, never requires admin | all runs as the normal user: `Elevated=False`, `User=电的回响\pzc45_t5px7ki`, 0 `consent.exe` processes; no step asks for elevation | **PASS** | this table + `evidence/P6.md` |
-| A13 | release compliance | LICENSE + THIRD-PARTY, 0 unknown licenses, no local paths/tokens/logs | MIT + THIRD-PARTY; in-repo scan 1 known / 0 unknown; prerequisites pixel MIT + uia MIT only; `check-repo: 67 files, 0 FAIL, 0 WARN` | **PASS** | `evidence/P6.md` |
+| A12 | no new elevation | 0 UAC, never requires admin | all runs as the normal user: `Elevated=False`, `User=<machine>\<user>`, 0 `consent.exe` processes; no step asks for elevation | **PASS** | this table + `evidence/P6.md` |
+| A13 | release compliance | LICENSE + THIRD-PARTY, 0 unknown licenses, no local paths/tokens/logs | MIT + THIRD-PARTY; in-repo scan 1 known / 0 unknown; prerequisites pixel MIT + uia MIT only; `check-repo: 88 files, 0 FAIL, 0 WARN` | **PASS** | `evidence/P6.md` |
 | A14 | security docs | SECURITY.md with the five statements | present: local execution / zero outbound / per-action / audit is not a boundary / disclosure, plus threat model and out-of-scope list | **PASS** | `SECURITY.md`, `evidence/P6.md` |
 | A15 | CI | static-only, green | workflow written (static suites only, GUI tests excluded) and validated + reproduced locally by `tools/ci-local.mjs` (3/3); **never executed on GitHub** — no repository, and pushing is on hold by the human's rule | **PREPARED, NOT PROVEN** | `evidence/P6.md` |
 
@@ -43,7 +43,7 @@ release is A15 — which is itself gated by the human's standing no-push rule
 ## Reproduce
 
 ```
-node test/run-all.mjs                # 7/7 suites, 196 checks: surface, invariants, config,
+node test/run-all.mjs                # 9/9 suites, 235 checks: surface, invariants, config,
                                      #   output contract, compat, command contract
 node tools/measure-surface.mjs dexter
 node tools/audit-stats.mjs all

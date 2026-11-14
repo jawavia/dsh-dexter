@@ -1,8 +1,8 @@
 # Third-party notices
 
-`dsh-dexter` itself is MIT (see `LICENSE`). This bundle **contains no third-party
-source code**: the desktop injection is loaded at runtime from packages that are
-already installed on the machine, through explicit adapters
+`dsh-dexter` itself is MIT (see `LICENSE`). This bundle **ships no third-party source code except the small derived helper described
+under _Derived code inside this repository_**: the desktop injection is loaded at runtime
+from packages that are already installed on the machine, through explicit adapters
 (`backends/legacy-*.js`). That is a deliberate licensing and safety boundary.
 
 ## Runtime prerequisites (loaded, not vendored)

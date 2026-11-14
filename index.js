@@ -453,7 +453,7 @@ export function apply(ctx, rawConfig = {}) {
       const dispose = commands.register({
         name: 'dexter',
         description: '桌面 hands（人类专用）：状态、开会话授权、续期、急停',
-        input: { hint: 'status | arm [30m] [200] | extend | stop | clear | panel [show|hide|reset|exit]' },
+        input: { hint: 'status | arm [15m] [100] | extend | stop | clear | panel [show|hide|reset|exit]' },
         handler: (invocation) => {
           // The gateway requires a CommandResult: { kind: 'success'|'error', text }.
           // A bare string is rejected with "command handler must return a CommandResult".

@@ -276,7 +276,7 @@ export class Gate {
       allowed: false,
       approval: 'none',
       reason: '⛔ 没有授权：当前部署没有提供 approval 服务，也没有人手开的会话授权。'
-        + '请主人执行 /dexter arm [30m] [200]（或按 Ctrl+Alt+F12）后再试；只想预演就带 dryRun: true。',
+        + '请主人执行 /dexter arm [15m] [100]（或按 Ctrl+Alt+F12）后再试；只想预演就带 dryRun: true。',
     }
   }
 

@@ -17,7 +17,7 @@ everything around them (routing, authorization, human pause, verification, audit
 | `hands_status` | read-only: authorization, stop, pause, backends, config summary, audit tail |
 | `stroke_toy` | **optional** (`toyStrokeEnabled=true`): a drawing toy (preset shapes, hard point cap, drawn in-repo with the MIT Win32 primitives), not a productivity tool |
 
-Default surface: 4 tools, 6,606 B of description + schemas (the previous bundle: 25
+Default surface: 4 tools, 7,034 B of description + schemas (the previous bundle: 25
 tools, 35,201 B). With the toy enabled: 5 tools, 7,691 B.
 
 ## How a write actually happens

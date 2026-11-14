@@ -5,9 +5,9 @@
 #
 #   - id: dsh-dexter
 #     config:
-#       approvalMode: latched
-#       approvalClicks: 20
-#       approvalLatchedSeconds: 600
+#       armMinutes: 30
+#       armActions: 200
+#       maxActionsPerMinute: 60
 #
 # `config` is left empty on purpose: every default lives in kernel/config.js, and a
 # profile override replaces the whole config object, so duplicating defaults here

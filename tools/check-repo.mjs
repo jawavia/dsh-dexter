@@ -11,14 +11,18 @@
  * unknown license is a visible line instead of a surprise after publishing.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
-const SKIP_DIRS = new Set(['node_modules', '.git', 'baseline', 'evidence'])
+const SKIP_DIRS = new Set(['node_modules', '.git'])
 const TEXT_EXT = /\.(mjs|js|json|yml|yaml|md|txt|svg|cmd|ps1)$/
+// Machine wiring and raw measurements are local-only; everything tracked is scanned,
+// including baseline/ and evidence/ (they used to be skipped, so paths hid there).
 const SKIP_FILES = new Set(['local.config.json'])
+// Same paths .gitignore covers: local measurements keep machine paths and are never tracked.
+const SKIP_PREFIXES = ['baseline/local/', 'evidence/local/']
 
 const findings = []
 const fail = (message) => findings.push({ level: 'FAIL', message })
@@ -35,7 +39,11 @@ function walk(dir, out = []) {
   return out
 }
 
-const files = walk(REPO).filter((file) => !SKIP_FILES.has(relative(REPO, file)))
+const files = walk(REPO).filter((file) => {
+  const rel = relative(REPO, file).split(sep).join('/')
+  if (SKIP_FILES.has(rel)) return false
+  return !SKIP_PREFIXES.some((prefix) => rel.startsWith(prefix))
+})
 
 // ---- 1. required documents ------------------------------------------------
 for (const required of ['LICENSE', 'THIRD-PARTY-NOTICES.md', 'SECURITY.md', 'README.md', 'package.json', 'cordis.patch.yml', 'locale/en.json', 'locale/zh.json', 'icon.svg']) {
@@ -81,12 +89,22 @@ else if (!existsSync(join(REPO, manifest.dsh.bundle.patch))) fail(`bundle patch 
 for (const entry of ['locale/en.json', 'locale/zh.json', 'icon.svg']) {
   if (!existsSync(join(REPO, entry))) fail(`manifest display resource missing: ${entry}`)
 }
-for (const runtimeDir of ['kernel', 'backends', 'tools']) {
+for (const runtimeDir of ['kernel', 'backends', 'tools', 'ui']) {
   if (!existsSync(join(REPO, runtimeDir))) fail(`runtime directory missing: ${runtimeDir}`)
   const listed = (manifest.files || []).some((pattern) => pattern === runtimeDir || pattern.startsWith(`${runtimeDir}/`))
   if (!listed) fail(`package.json files[] does not cover ${runtimeDir}/`)
 }
-if (!(manifest.files || []).includes('index.js')) fail('package.json files[] does not cover index.js')
+for (const runtimeFile of ['index.js', 'client.js', 'cordis.patch.yml', 'icon.svg', 'docs/HANDS.md', 'docs/DETAIL.md', 'locale/en.json', 'locale/zh.json', 'README.md']) {
+  if (!existsSync(join(REPO, runtimeFile))) fail(`runtime file missing: ${runtimeFile}`)
+  const listed = (manifest.files || []).some((pattern) => (
+    pattern === runtimeFile
+    || (pattern.endsWith('/*.json') && runtimeFile.startsWith(pattern.replace('/*.json', '/')) && runtimeFile.endsWith('.json'))
+    || (pattern.endsWith('/*.md') && runtimeFile.startsWith(pattern.replace('/*.md', '/')) && runtimeFile.endsWith('.md'))
+    || (pattern === 'docs' && runtimeFile.startsWith('docs/'))
+    || (pattern === 'locale' && runtimeFile.startsWith('locale/'))
+  ))
+  if (!listed) fail(`package.json files[] does not cover ${runtimeFile}`)
+}
 
 // ---- 4. patch sanity ------------------------------------------------------
 const patch = readFileSync(join(REPO, 'cordis.patch.yml'), 'utf8')

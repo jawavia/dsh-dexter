@@ -5,7 +5,7 @@ that is re-processed on every single request.
 
 | Source | old `dsh-desktop-hands` 0.2.6 | new `dsh-dexter` 0.1.0 |
 |---|---|---|
-| tool schemas (name + description + params + output) | 25 tools · **35,174 B** | 4 tools · **6,606 B** |
+| tool schemas (name + description + params + output) | 25 tools · **35,174 B** | 4 tools · **7,034 B** |
 | system-prompt section (pixel's safety text) | **457 chars** | none |
 | skill catalog line (`click-matrix`) | **56 chars** | none |
 | **fixed context per request** | **≈ 8,635 tokens** | **≈ 1,604 tokens** |

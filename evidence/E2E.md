@@ -49,7 +49,7 @@ hands_act · hotkey · executed · approval=session:3/100       · verify=foregr
 `Ctrl+S` 保存后直接读文件：
 
 ```
-file = C:\Users\PZC45_~1\AppData\Local\Temp\dexter-e2e-194056.txt
+file = %TEMP%\dexter-e2e-194056.txt
 size = 22
 content = [dexter-e2e-194056]
 ```
