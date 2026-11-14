@@ -107,8 +107,31 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
     return victims.length
   }
 
+  /** Is the process we spawned (or reaped) still alive? Cheap, no WM calls. */
+  function isAlive() {
+    if (!child || typeof child.pid !== 'number') return false
+    try {
+      process.kill(child.pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Start it if it is not running. This is what `/dexter panel show` and the authorize
+   * button call: closing the panel (Exit panel, or the window closing for any reason) must
+   * not leave it unopenable until the plugin is reloaded.
+   */
+  function ensure() {
+    if (started && isAlive()) return { ok: true, reused: true }
+    started = false
+    child = null
+    return start()
+  }
+
   function start() {
-    if (started) return { ok: true, reused: true }
+    if (started && isAlive()) return { ok: true, reused: true }
     reapStale()
     // Never spawn a desktop window from a scratch data dir (tests): it would outlive the
     // test, hold the temp directory open and paint over whatever is running.
@@ -126,6 +149,11 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
       writeLabels()
       child = spawn(built.path, [dataDir], { detached: true, stdio: 'ignore', windowsHide: false })
       child.unref()
+      child.on('exit', () => {
+        // The panel was closed (tray Exit, × misuse, crash). Remember it so `ensure()`
+        // restarts instead of believing it is still up.
+        started = false
+      })
       started = true
       logger(built.built ? `桌面面板已编译并启动: ${built.path}` : `桌面面板已启动: ${built.path}`)
       return { ok: true, path: built.path, built: built.built }
@@ -173,10 +201,11 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
   return {
     start,
     stop,
+    ensure,
     command,
     writeState,
     get running() {
-      return started
+      return started && isAlive()
     },
     get paths() {
       return { exe, statePath, stopPath }

@@ -116,6 +116,7 @@ function formatStatus(snapshot) {
     `热键：${snapshot.hotkeyLabels ? snapshot.hotkeyLabels.arm : 'Ctrl+Alt+F12'} 开授权 · ${snapshot.hotkeyLabels ? snapshot.hotkeyLabels.extend : 'Ctrl+Alt+F10'} 续期 · ${snapshot.hotkeyLabels ? snapshot.hotkeyLabels.softStop : 'Ctrl+Shift+F11'} 软停 · ${snapshot.hotkeyLabels ? snapshot.hotkeyLabels.stop : 'Ctrl+Alt+F11'} 或 Esc 急停`,
     snapshot.hotkeys || '热键：未检测',
     ...(snapshot.engineStop ? [snapshot.engineStop] : []),
+    snapshot.panelNote || '面板：未启用',
     `后端：pixel=${snapshot.backends.pixel} · uia=${snapshot.backends.uia} · toy=${snapshot.backends.toy}`,
     `配置：${snapshot.config}`,
     `观察新鲜度：${lastView.ageMs >= 0 ? `${Math.round(lastView.ageMs / 1000)}s 前 ${lastView.action}` : '还没看过屏幕'}（写动作要求 ${snapshot.lastView.requireFreshSeconds ?? ''}）`,
@@ -341,6 +342,9 @@ export function apply(ctx, rawConfig = {}) {
     ...kernel.status({ tail: typeof tail === 'number' ? Math.max(1, Math.min(40, tail)) : 8 }),
     lastView: { ...kernel.status({ tail: 0 }).lastView, requireFreshSeconds: config.requireFreshLookSeconds },
     hotkeys: hotkeys && hotkeys.ok ? hotkeys.summary() : '热键：未检测（uia 后端不可用）',
+    panelNote: panel
+      ? `面板：${panel.running ? '运行中' : '未运行（/dexter panel show 重新打开）'}`
+      : (config.panelEnabled ? '面板：不可用（看插件日志）' : '面板：已关闭（配置 panelEnabled=false）'),
     engineStop: engineStopNote(),
     hotkeyLabels: {
       arm: comboLabel(combos.arm),
@@ -480,8 +484,17 @@ export function apply(ctx, rawConfig = {}) {
             const map = { show: 'show', hide: 'hide', reset: 'reset', exit: 'exit' }
             const command = map[what]
             if (!command) return bad(`未知的面板操作：${what}（可用 show / hide / reset / exit）`)
+            if (command === 'exit') {
+              const result = panel.command('exit')
+              return result.ok ? ok('面板已关闭（要它回来：/dexter panel show）') : bad(`面板命令失败：${result.reason}`)
+            }
+            // Closing the window (or the tray's Exit) used to make the panel unopenable until
+            // the plugin reloaded. `ensure()` restarts the process before sending the command.
+            const up = panel.ensure()
+            if (!up.ok) return bad(`面板启动失败：${up.reason}`)
             const result = panel.command(command)
-            return result.ok ? ok(`面板命令已发送：${command}`) : bad(`面板命令失败：${result.reason}`)
+            const restarted = up.reused ? '' : '（已重新启动面板进程）'
+            return result.ok ? ok(`面板命令已发送：${command}${restarted}`) : bad(`面板命令失败：${result.reason}`)
           }
           return ok(commandHelp())
         },
