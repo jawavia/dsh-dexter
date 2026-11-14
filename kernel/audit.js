@@ -51,6 +51,9 @@ export class Audit {
     this.seq = 0
     this.head = ''
     this.loaded = false
+    // Size of the file after our last write: a different size means another writer (a
+    // plugin instance shutting down during a reload) appended, so the chain head must move.
+    this.lastSize = -1
     this.broken = false
     this.lastError = ''
     this.writes = 0
@@ -98,6 +101,22 @@ export class Audit {
     if (this.loaded) return
     this.loaded = true
     if (!existsSync(this.file)) return
+    this.#adoptTail()
+  }
+
+  /**
+   * Adopt the real last row (seq + hash) from disk. Called on first append and again whenever
+   * the file grew behind our back: during a plugin reload the old instance may still write its
+   * helper-exit rows, and two independent counters would otherwise interleave and break the
+   * chain.
+   */
+  #adoptTail() {
+    if (!existsSync(this.file)) {
+      this.seq = 0
+      this.head = ''
+      this.lastSize = -1
+      return
+    }
     try {
       const size = statSync(this.file).size
       const window = Math.min(size, 64 * 1024)
@@ -108,13 +127,15 @@ export class Audit {
         const text = buffer.toString('utf8')
         const lines = text.split(/\r?\n/).filter((line) => line.trim() !== '')
         const last = lines[lines.length - 1]
-        if (!last) return
-        const row = JSON.parse(last)
-        this.seq = Number(row.seq) || 0
-        this.head = typeof row.h === 'string' ? row.h : ''
+        if (last) {
+          const row = JSON.parse(last)
+          this.seq = Number(row.seq) || 0
+          this.head = typeof row.h === 'string' ? row.h : ''
+        }
       } finally {
         closeSync(fd)
       }
+      this.lastSize = size
     } catch (error) {
       this.lastError = `审计尾部读取失败（将从 seq=0 重新开始）: ${error && error.message ? error.message : error}`
       this.onError(this.lastError)
@@ -129,6 +150,13 @@ export class Audit {
     if (!this.#ensureDir()) return null
     this.#rotateIfNeeded()
     this.#loadChain()
+    // Another writer may have appended since our last write (a plugin instance that is still
+    // shutting down). Adopt its row so this row chains onto the real tail instead of forking.
+    try {
+      const size = existsSync(this.file) ? statSync(this.file).size : -1
+      if (this.lastSize >= 0 && size !== this.lastSize) this.#adoptTail()
+      else if (this.lastSize < 0) this.lastSize = size
+    } catch { /* a missing file is handled by the write below */ }
     const now = this.clock()
     const body = cleanValue(entry)
     const row = {
@@ -141,6 +169,7 @@ export class Audit {
     row.h = sha256Hex(stableStringify(row))
     try {
       appendFileSync(this.file, `${JSON.stringify(row)}\n`, 'utf8')
+      try { this.lastSize = statSync(this.file).size } catch { this.lastSize = -1 }
       this.seq = row.seq
       this.head = row.h
       this.writes += 1

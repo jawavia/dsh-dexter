@@ -20,6 +20,7 @@ const STEPS = [
   ['08-safety.test.mjs', 'safety edges'],
   ['09-vendor.test.mjs', 'vendored engines'],
   ['10-panel-config.test.mjs', 'panel config'],
+  ['11-audit-chain.test.mjs', 'audit chain'],
   [join('..', 'tools', 'check-repo.mjs'), 'A13 repository hygiene'],
 ]
 
