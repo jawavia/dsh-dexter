@@ -293,7 +293,9 @@ namespace DshDexterPanel
             detail.Visible = false;
             ClientSize = new Size(14, 56);
             Rectangle work = Screen.FromPoint(Cursor.Position).WorkingArea;
-            Location = new Point(work.Right - 14, work.Top + (work.Height - 56) / 2);
+            // 4 px inset: with an auto-hidden taskbar the working area equals the screen, and
+            // a strip flush against the edge would sit in the taskbar's reveal zone.
+            Location = new Point(work.Right - 18, work.Top + (work.Height - 56) / 2);
             headline.Visible = false;
             detail.Visible = false;
             hideButton.Visible = false;
