@@ -3,7 +3,9 @@
  *
  * Two buttons beside the composer:
  *
- *   授权  → sends `/dexter arm 15m 100` (15 minutes / 100 actions / 30 per minute)
+ *   授权  → sends `/dexter arm` with **no numbers**, so the value comes from the plugin
+ *            settings (armMinutes / armActions / maxActionsPerMinute). A hardcoded
+ *            15m/100 here is what made the settings page pointless for this button.
  *   面板  → sends `/dexter panel show` (brings the desktop strip back)
  *
  * Both go through the documented InputActions facet of the composer
@@ -84,9 +86,9 @@ window.__ModuleLoader__.load({
       },
         h('button', {
           type: 'button',
-          onClick: () => press('/dexter arm 15m 100', '授权'),
+          onClick: () => press('/dexter arm', '授权'),
           style: buttonStyle,
-          title: '开一次会话授权：15 分钟 / 100 次（频率 30/分）。会替换当前草稿。',
+          title: '开一次会话授权：时长/次数/频率都取设置里的值（armMinutes / armActions / maxActionsPerMinute）。会替换当前草稿。',
         }, '授权'),
         h('button', {
           type: 'button',
