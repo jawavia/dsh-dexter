@@ -279,7 +279,12 @@ export function apply(ctx, rawConfig = {}) {
     if (backends.uia && backends.uia.ok) {
       stopbus.probe = backends.uia.probe
       human.probe = backends.uia.probe
-      stopbus.start()
+      // The config key exists to turn the human hotkeys off; honour it instead of ignoring it.
+      if (config.hotkeysEnabled) {
+        stopbus.start()
+      } else {
+        logger('热键已按配置关闭（hotkeysEnabled=false）：只能用 /dexter 命令。')
+      }
       human.start()
       kernel.buttons = await createButtonProbe({ uia: backends.uia })
       if (!kernel.buttons.ok) logger(`鼠标键探测不可用（悬停将按普通写动作处理）：${kernel.buttons.reason}`)
@@ -311,7 +316,9 @@ export function apply(ctx, rawConfig = {}) {
               ? '● hands · 已急停（需重新授权）'
               : grant && grant.active
                 ? `● hands · 授权 ${Math.max(0, Math.round(grant.remainingMs / 60000))} 分钟 / ${Math.max(0, grant.actions - grant.used)} 次`
-                : '● hands · 未授权（逐次请示）'
+                : config.askOnWrite
+                  ? '● hands · 未授权（逐次请示）'
+                  : '● hands · 未授权（askOnWrite=false，需先 /dexter arm）'
             // Second line answers "what is it doing with the mouse right now"; when it is
             // idle and unauthorized it says how to authorize, in the panel itself, so the
             // human does not have to remember a command or find a page button.
@@ -344,7 +351,11 @@ export function apply(ctx, rawConfig = {}) {
   const statusText = ({ tail } = {}) => formatStatus({
     ...kernel.status({ tail: typeof tail === 'number' ? Math.max(1, Math.min(40, tail)) : 8 }),
     lastView: { ...kernel.status({ tail: 0 }).lastView, requireFreshSeconds: config.requireFreshLookSeconds },
-    hotkeys: hotkeys && hotkeys.ok ? hotkeys.summary() : '热键：未检测（uia 后端不可用）',
+    // Refresh the probe: after the pixel helper starts it may claim F11/F12, so the answer
+    // taken at apply time can be stale (four register/unregister pairs, cheap).
+    hotkeys: hotkeys && hotkeys.ok
+      ? (() => { try { hotkeys.check() } catch { /* keep the old answer */ } return hotkeys.summary() })()
+      : '热键：未检测（uia 后端不可用）',
     panelNote: panel
       ? `面板：${panel.running ? '运行中' : '未运行（/dexter panel show 重新打开）'}`
       : (config.panelEnabled ? '面板：不可用（看插件日志）' : '面板：已关闭（配置 panelEnabled=false）'),
@@ -466,7 +477,7 @@ export function apply(ctx, rawConfig = {}) {
               + `\n系统/安全类目标仍然永久禁止；聊天/邮件/支付类仍需逐条批准。到期或按 Esc 即失效。`)
           }
           if (verbName === 'extend') {
-            const result = gate.extendGrant({ minutes: Number(a) || 0, actions: Number(b) || 0, source: 'command' })
+            const result = gate.extendGrant({ minutes: Number(a) || config.armMinutes, actions: Number(b) || config.armActions, source: 'command' })
             if (!result.ok) return bad(`续期失败：${result.error}`)
             const grant = result.grant
             return ok(`已续期：现在共 ${grant.actions} 次 / 剩 ${Math.round(grant.remainingMs / 1000)}s。`)

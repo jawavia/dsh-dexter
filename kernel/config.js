@@ -44,7 +44,7 @@ export const FIELD_SPEC = Object.freeze({
   maxActionsPerMinute: {
     type: 'int',
     default: 30,
-    min: 1,
+    min: 0,
     max: 600,
     desc: 'Hard rate cap for injected writes in every mode; 0 = no cap.',
   },

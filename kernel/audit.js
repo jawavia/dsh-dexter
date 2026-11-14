@@ -15,12 +15,18 @@ import { sha256Hex, stableStringify } from './util.js'
 
 function cleanValue(value, depth = 0) {
   if (value === null || typeof value === 'boolean' || typeof value === 'number') return value
+  if (value === undefined) return null
   if (typeof value === 'string') return value.length > 500 ? `${value.slice(0, 500)}…` : value
   if (Array.isArray(value)) return depth >= 2 ? `[${value.length}]` : value.slice(0, 50).map((item) => cleanValue(item, depth + 1))
   if (typeof value === 'object') {
     if (depth >= 3) return '[object]'
     const out = {}
-    for (const [key, item] of Object.entries(value)) out[key] = cleanValue(item, depth + 1)
+    for (const [key, item] of Object.entries(value)) {
+      // Absent fields stay absent: a literal "undefined" in the trail is noise that reads
+      // like a value.
+      if (item === undefined) continue
+      out[key] = cleanValue(item, depth + 1)
+    }
     return out
   }
   return String(value)
@@ -151,6 +157,8 @@ export class Audit {
 
   /** Last `count` rows, oldest first. Used by hands_status; never dumps the file. */
   tail(count = 10) {
+    // `slice(-0)` is `slice(0)`: asking for 0 rows must return none, not everything.
+    if (!Number.isFinite(count) || count <= 0) return []
     if (!existsSync(this.file)) return []
     try {
       const size = statSync(this.file).size

@@ -191,6 +191,15 @@ export class Gate {
       this.denials += 1
       return { allowed: false, approval: 'none', reason: '⛔ readOnly=true：只能看，不能动手。' }
     }
+    // No evidence, no injection: a broken audit trail is a refusal, not a warning.
+    if (this.audit && this.audit.broken) {
+      this.denials += 1
+      return {
+        allowed: false,
+        approval: 'none',
+        reason: '⛔ 审计不可写（audit.broken）：没有审计就不注入。请检查 ~/.dsh/dexter/audit 的权限与磁盘空间。',
+      }
+    }
     if (this.stopped) {
       this.denials += 1
       return {

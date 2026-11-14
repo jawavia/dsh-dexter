@@ -100,6 +100,14 @@ const STEP_SCHEMA = {
     text: { type: 'string', description: 'type 的文本' },
     key: { type: 'string', description: '单键，如 enter' },
     keys: { type: 'string', description: '组合，如 ctrl+s' },
+    expect: {
+      type: 'object',
+      properties: {
+        process: { type: 'string' },
+        titleContains: { type: 'string' },
+      },
+      description: '每步执行后的前台断言（与 hands_act 相同）。',
+    },
   },
 }
 

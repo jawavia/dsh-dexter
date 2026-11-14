@@ -13,8 +13,11 @@
 import { execFileSync, spawnSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const SOURCE = join(dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', 'ui', 'Panel.cs')
+// fileURLToPath, not URL.pathname: a percent-encoded path ("Zhang%20San") made the source
+// check fail silently and the panel could never start.
+const SOURCE = join(dirname(fileURLToPath(import.meta.url)), '..', 'ui', 'Panel.cs')
 
 function cscPath() {
   const drive = String.fromCharCode(67) // 'C' — avoid a literal drive path in the repo scan
@@ -163,7 +166,23 @@ export function createPanel({ dataDir, source = SOURCE, logger = () => {} } = {}
   }
 
   function stop() {
-    if (!started) return
+    // Even when we never started one (a crashed panel left a process behind), write the
+    // marker and sweep by command line so dispose leaves no ghost window.
+    if (!started) {
+      try {
+        mkdirSync(dataDir, { recursive: true })
+        writeFileSync(stopPath, 'stop\n', 'utf8')
+      } catch { /* the sweep below is the fallback */ }
+      const swept = reapStale()
+      const timer = setTimeout(() => {
+        reapStale()
+        try {
+          rmSync(stopPath, { force: true })
+        } catch { /* ignore */ }
+      }, 1200)
+      if (timer && typeof timer.unref === 'function') timer.unref()
+      return { ok: true, swept }
+    }
     started = false
     try {
       mkdirSync(dataDir, { recursive: true })

@@ -332,6 +332,18 @@ export class Kernel {
   async #classifyForStep(capability, args = {}) {
     let info = null
     let source = 'unknown'
+    // A sample point lets the pixel engine answer "is this window elevated?" even when the
+    // target was given as a window; the docs promise elevated windows are refused.
+    const elevationAt = async (point) => {
+      const pixel = this.backends.pixel
+      if (!point || !pixel || !pixel.ok || typeof pixel.probeAt !== 'function') return null
+      try {
+        const probed = await pixel.probeAt(point.x, point.y)
+        return probed ? probed.elevated === true : null
+      } catch {
+        return null
+      }
+    }
     try {
       if (args.window && typeof args.window === 'object') {
         const resolved = this.#resolveWindow(args.window)
@@ -339,10 +351,12 @@ export class Kernel {
           const uia = this.backends.uia
           const windows = uia && uia.ok ? uia.windows() : []
           const hit = windows.find((win) => String(win.handle) === String(resolved.handle))
+          const centre = hit ? { x: Math.round(hit.rect.x + hit.rect.width / 2), y: Math.round(hit.rect.y + hit.rect.height / 2) } : null
+          const elevated = await elevationAt(centre)
           info = {
             process: hit && uia.processNameOf ? uia.processNameOf(hit.pid) : '',
             title: resolved.title || (hit ? hit.title : ''),
-            elevated: false,
+            elevated: elevated === true,
             handle: resolved.handle,
           }
           source = 'window'
@@ -365,20 +379,37 @@ export class Kernel {
           const uia = this.backends.uia
           const foreground = uia && uia.ok ? uia.foreground() : null
           if (foreground) {
+            const rect = foreground.rect
+            const centre = rect ? { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) } : null
+            const elevated = await elevationAt(centre)
             info = {
               process: foreground.process || (uia.processNameOf ? uia.processNameOf(foreground.pid) : ''),
               title: foreground.title || '',
-              elevated: false,
+              elevated: elevated === true,
               handle: foreground.handle,
             }
             source = capability === 'type' || capability === 'key' || capability === 'hotkey' ? 'foreground' : 'foreground-fallback'
           }
         }
       }
+      // A drag ends somewhere: classify the release point too, or a safe start can drop
+      // something into a forbidden window.
+      if (capability === 'drag' && args.toX !== undefined && args.toY !== undefined) {
+        const release = await elevationAt({ x: Math.round(Number(args.toX)), y: Math.round(Number(args.toY)) })
+        if (release === true) {
+          info = { ...(info || {}), elevated: true }
+        }
+        if (release === null && info) {
+          // release point could not be probed: fail closed rather than guess
+          info = { ...info, elevated: false, releaseUnknown: true }
+        }
+      }
     } catch {
       info = null
     }
-    if (!info) return { category: 'normal', reasons: [], label: '(目标未知)', source }
+    // No window information at all: the permanent deny list cannot be applied, so this is
+    // "unknown" (refused), never "normal" (fail closed).
+    if (!info) return { category: 'unknown', reasons: ['读不到目标窗口信息'], label: '(目标未知)', source }
     return classifyTarget({ ...info, source })
   }
 
@@ -410,8 +441,13 @@ export class Kernel {
     const invalid = this.#invalidArgument(capability, args)
     if (invalid) return invalid
 
+    // Classify BEFORE any decision, so a rehearsal cannot describe a permanently forbidden
+    // target as "would run" (the real call would refuse it) and an unclassifiable target
+    // fails closed instead of being treated as ordinary.
+    const target = await this.#classifyForStep(capability, args)
+
     if (dryRun) {
-      const preview = this.#preview(capability, args)
+      const preview = this.#preview(capability, args, target)
       this.#writeRow({
         tool: 'hands_act',
         capability,
@@ -425,11 +461,10 @@ export class Kernel {
         durationMs: this.now() - startedAt,
         extra: { blocked: preview.blockers.length, agent: exec?.agent?.id },
       })
-      return { ok: true, text: preview.text, dryRun: true }
+      return { ok: !preview.wouldRefuse, text: preview.text, dryRun: true }
     }
 
     // Never ask the human for something this plugin refuses permanently.
-    const target = await this.#classifyForStep(capability, args)
     if (target.category === 'system') {
       this.#writeRow({
         tool: 'hands_act',
@@ -441,6 +476,31 @@ export class Kernel {
         durationMs: this.now() - startedAt,
       })
       return { ok: false, text: systemRefusal(target) }
+    }
+    if (target.category === 'unknown') {
+      this.#writeRow({
+        tool: 'hands_act',
+        capability,
+        decision: 'denied',
+        approval: 'none',
+        reason: 'unknown-target',
+        args,
+        durationMs: this.now() - startedAt,
+      })
+      return { ok: false, text: this.#unknownTargetRefusal(capability) }
+    }
+    // No evidence, no injection: a trail that cannot be written means nothing may be done.
+    if (this.audit && this.audit.broken) {
+      this.#writeRow({
+        tool: 'hands_act',
+        capability,
+        decision: 'denied',
+        approval: 'none',
+        reason: 'audit-broken',
+        args,
+        durationMs: this.now() - startedAt,
+      })
+      return { ok: false, text: '⛔ 审计写不进去（audit.broken）：没有审计就不注入。请检查 ~/.dsh/dexter/audit 的权限与磁盘空间。' }
     }
 
     const idle = await this.human.waitForIdle({ signal: exec.signal })
@@ -576,6 +636,15 @@ export class Kernel {
     return { ok: step.ok, text: step.text, imageRef: step.imageRef }
   }
 
+  /**
+   * A target whose window cannot be identified: the permanent deny list cannot be applied,
+   * so the write is refused. Reads are unaffected.
+   */
+  #unknownTargetRefusal(capability) {
+    return `⛔ 无法确认目标窗口（${capability}）：读不到前台/落点窗口信息，就套不上"系统类永久禁止"这张清单，因此拒绝注入。`
+      + '先 hands_view { action: "info" } 看后端是否可用；或改用 UIA 控件 / 明确 window。'
+  }
+
   /** Refusal text when anything is stopped — the gate and the stop bus must agree. */
   #stopDenial() {
     const snapshot = this.gate.snapshot()
@@ -652,15 +721,19 @@ export class Kernel {
     return `⛔ 先看一眼再动手：${detail}（要求 ${this.config.requireFreshLookSeconds} 秒内 hands_view 过一次）。`
   }
 
-  /** Rehearse without injecting: same routing and the same blocker list. */
-  #preview(capability, args) {
+  /** Rehearse without injecting: same target policy, same routing, same blocker list. */
+  #preview(capability, args, target = null) {
     const route = routeAct({ capability, args, backends: this.backends })
     const blockers = []
     const lines = []
     if (!route.backend) blockers.push(route.reason)
+    // The real call classifies first; the rehearsal must answer the same way.
+    if (target && target.category === 'system') blockers.push(systemRefusal(target).replace('⛔ ', ''))
+    if (target && target.category === 'unknown') blockers.push(this.#unknownTargetRefusal(capability).replace('⛔ ', ''))
     const snapshot = this.gate.snapshot()
     if (snapshot.stopped) blockers.push(`急停状态（${snapshot.stopped.level}）未解除`)
-    if (snapshot.grant) lines.push(`授权：${snapshot.grant.kind} grant 剩 ${snapshot.grant.left} 次 / ${Math.round(snapshot.grant.remainingMs / 1000)}s`)
+    if (this.audit && this.audit.broken) blockers.push('审计不可写（正式执行会拒绝注入）')
+    if (snapshot.grant) lines.push(`授权：会话授权剩 ${snapshot.grant.left} 次 / ${Math.round(snapshot.grant.remainingMs / 1000)}s`)
     else if (this.gate.hasApprovalChannel()) lines.push('授权：正式执行时会逐次向人类请示（预演不请示）')
     else lines.push('授权：正式执行需要人手开授权窗口（预演不消耗）')
     if (this.human.isSuspended()) blockers.push('人类正在操作（正式执行会先暂停）')
@@ -804,6 +877,35 @@ export class Kernel {
     return { region: { x: Math.max(0, point.x - 80), y: Math.max(0, point.y - 80), width: 160, height: 160 } }
   }
 
+  /**
+   * Does the window under this screen point belong to the intended handle? Used before a
+   * coordinate fallback, where a background control's rectangle may be covered by another
+   * application.
+   */
+  async #pointBelongsTo(point, handle) {
+    const pixel = this.backends.pixel
+    if (!pixel || !pixel.ok || typeof pixel.probeAt !== 'function') {
+      return { ok: false, reason: '⛔ 无法确认落点窗口（pixel 探测不可用），坐标回退已拒绝。' }
+    }
+    try {
+      const probed = await pixel.probeAt(point.x, point.y)
+      if (!probed) return { ok: false, reason: `⛔ 落点 ${point.x},${point.y} 上没有窗口，已拒绝。` }
+      if (String(probed.handle) !== String(handle)) {
+        return {
+          ok: false,
+          reason: `⛔ 落点 ${point.x},${point.y} 上是另一个窗口（${probed.title || probed.process || probed.handle}），`
+            + `不是目标 ${handle}：控件可能被别的窗口盖住了，已拒绝。`,
+        }
+      }
+      if (probed.elevated === true) {
+        return { ok: false, reason: '⛔ 落点窗口是提权窗口：永久禁止，已拒绝。' }
+      }
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, reason: `⛔ 落点探测失败：${error && error.message ? error.message : error}` }
+    }
+  }
+
   async #performUia({ capability, args = {}, exec = {} }) {
     const uia = this.backends.uia
     if (capability === 'click' && typeof args.control === 'string' && args.control.trim() !== '') {
@@ -828,6 +930,10 @@ export class Kernel {
       }
       const rect = await this.#resolveControlRect({ control, window: args.window })
       if (!rect.ok) return { ok: false, text: rect.reason, engineTool: 'uia' }
+      // A control in a background window can be covered by another (possibly forbidden)
+      // window at that point; the coordinate fallback must hit the intended window only.
+      const sound = await this.#pointBelongsTo(rect.point, rect.handle)
+      if (!sound.ok) return { ok: false, text: sound.reason, engineTool: 'uia' }
       uia.click(rect.point, { button: args.button || 'left', count: clampInt(args.count, 1, 2, 1) })
       return {
         ok: true,
@@ -844,6 +950,16 @@ export class Kernel {
           return { ok: true, text: `已把 ${String(args.text ?? '').length} 个字符写入控件 ${args.control}（不经过键盘）。`, engineTool: 'uia.setvalue' }
         }
       } catch { /* not a value pattern: fall back to typing */ }
+      // Typing goes to whatever is foreground: make sure that is still the intended window.
+      const foreground = uia.foreground()
+      if (!foreground || String(foreground.handle) !== String(rect.handle)) {
+        return {
+          ok: false,
+          text: `⛔ 控件 ${args.control} 所在的窗口不是前台（当前前台 ${foreground ? foreground.handle : '(无)'}，目标 ${rect.handle}）：`
+            + '这种情况下打字会落到别的窗口里，已拒绝。请先 hands_view { action: "focus" } 该窗口。',
+          engineTool: 'uia',
+        }
+      }
     }
     if (capability === 'type') {
       uia.type(String(args.text ?? ''), { chunkChars: 240, chunkDelayMs: 20 })
@@ -1029,7 +1145,11 @@ export class Kernel {
     this.human.beginInjection()
     let result
     try {
-      result = await toy.draw({ points, button: args.button === 'R' ? 'R' : 'L' })
+      result = await toy.draw({
+        points,
+        button: args.button === 'R' ? 'R' : 'L',
+        shouldStop: () => Boolean(this.gate.snapshot().stopped) || Boolean(this.stopbus && this.stopbus.stopped),
+      })
     } catch (error) {
       result = { sent: 0, elapsed: 0, aborted: true, reason: String(error && error.message ? error.message : error) }
     } finally {
@@ -1056,7 +1176,8 @@ export class Kernel {
   // ---- stop / status -------------------------------------------------------
 
   #stopFromTool(exec) {
-    const stop = this.stop();
+    // An agent asked for the stop: record it as such, not as a human's.
+    const stop = this.stop({ level: 'hard', by: 'agent', reason: 'hands_act stop' })
     this.#row({
       tool: 'hands_act',
       capability: 'stop',
@@ -1080,6 +1201,9 @@ export class Kernel {
     try {
       this.stopbus?.markStopped?.(level, by, reason)
     } catch { /* bus optional */ }
+    try {
+      this.backends.toy?.stop?.()
+    } catch { /* drawer optional */ }
     try {
       this.backends.pixel?.abort?.(`dexter-stop:${level}`)
     } catch { /* nothing in flight */ }
