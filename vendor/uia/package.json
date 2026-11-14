@@ -1,0 +1,57 @@
+{
+  "name": "dsh-x2",
+  "version": "0.6.0-local.1",
+  "description": "Local-only fork of dsh-screen (MIT): eyes and hands for DSH + grid overlay + audit chain + image budget. NOT for redistribution.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml",
+    "README.md",
+    "NOTES.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "computer-use",
+    "windows",
+    "uiautomation",
+    "screen"
+  ],
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "dsh": {},
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "koffi": "^3.3.4"
+  },
+  "license": "MIT",
+  "author": "local fork (base: ql0423/dsh-screen, MIT)",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "homepage": "",
+  "bugs": {
+    "url": ""
+  },
+  "private": true
+}

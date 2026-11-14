@@ -41,6 +41,7 @@
     "client.js",
     "kernel",
     "backends",
+    "vendor",
     "ui",
     "tools",
     "locale/*.json",

@@ -108,18 +108,22 @@ defaults == runtime defaults).
 
 ---
 
-## D2 — Legacy engines are loaded, not vendored
+## D2 — Legacy engines are vendored into the package (revised 2026-11-14)
 
 **Order (2.2):** pixel/control injection stays; they become `legacy-*` backends.
-**What exists:** `backends/resolve.js` resolves `dsh-click-matrix`, `dsh-x2` and
-`dsh-stroke` from: explicit config path → `DSH_DEXTER_LEGACY_ROOT` →
-`local.config.json` (git-ignored) → package resolution next to the plugin. Modules
-are imported by absolute file URL.
-**Cost:** installing dsh-dexter alone does not make it able to inject; it needs the
-engines on the machine. A missing engine is reported per call and in
-`hands_status`, never silently ignored.
-**Why:** vendoring 980 KB of engine source plus a koffi binary into a new repository
-would duplicate code, duplicate licenses, and blur which copy is authoritative.
+**What existed first:** `backends/resolve.js` resolved `dsh-click-matrix` and `dsh-x2`
+from an explicit config path → `DSH_DEXTER_LEGACY_ROOT` → `local.config.json` →
+package resolution next to the plugin, so installing dsh-dexter alone could not inject.
+**Revised:** the two engines now ship inside `vendor/` (unmodified upstream code, MIT,
+with their licenses and the `koffi` native module), and `resolve.js` falls back to that
+copy. An explicit path still wins, so an existing installation keeps working.
+**What this costs:** the package grows by ~5.5 MB (pixel 886 KB, uia + koffi 4.6 MB) and
+carries third-party code that must be updated deliberately, not silently.
+**What it buys:** a fresh machine can install the bundle and inject with **no
+prerequisites** — the property this plugin lacked.
+**Evidence:** `THIRD-PARTY-NOTICES.md` (vendored table with versions and licenses),
+`test/09-vendor.test.mjs` (boots the whole plugin with `local.config.json` hidden and
+asserts `backends came from vendor`), `tools/check-repo.mjs` (manifest + licenses).
 
 ---
 

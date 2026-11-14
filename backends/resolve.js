@@ -66,6 +66,16 @@ export function resolveEngine(kind, configured = '') {
     return { ok: false, dir, entry, source: 'config', reason: `配置的 ${kind} 路径里没有 ${spec.entry}` }
   }
 
+  // Vendored engines ship inside this package, so a fresh install works with no
+  // prerequisites. An explicit config path still wins; this only fills the gap.
+  // (The vendor directory is named after the engine kind, not after the legacy package's
+  // own sub-directory name, so `uia` lives in vendor/uia rather than vendor/control.)
+  const vendorSubdir = kind === 'uia' ? 'uia' : spec.subdir
+  const vendored = join(PACKAGE_DIR, 'vendor', vendorSubdir)
+  if (existsSync(join(vendored, spec.entry))) {
+    return { ok: true, dir: vendored, entry: join(vendored, spec.entry), source: 'vendor' }
+  }
+
   const root = process.env.DSH_DEXTER_LEGACY_ROOT || ''
   if (root.trim() !== '') {
     const dir = join(root, 'engines', spec.subdir)

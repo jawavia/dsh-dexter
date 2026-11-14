@@ -64,8 +64,12 @@ const forbidden = [
   { name: 'generic api key', pattern: /\bsk-[A-Za-z0-9]{20,}/ },
 ]
 for (const file of files) {
-  const rel = relative(REPO, file)
+  const rel = relative(REPO, file).split(sep).join('/')
   const ext = file.slice(file.lastIndexOf('.'))
+  // Vendored third-party engines are unmodified upstream code: they may carry their own
+  // drive letters and native `.node` binaries. Their presence and licenses are checked by
+  // test/09-vendor.test.mjs instead.
+  if (rel.startsWith('vendor/')) continue
   if (['.jsonl', '.log', '.exe', '.dll', '.node', '.png', '.jpg'].includes(ext)) {
     fail(`forbidden artifact in repo: ${rel}`)
     continue

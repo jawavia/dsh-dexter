@@ -18,6 +18,7 @@ const STEPS = [
   ['06-command.test.mjs', 'command contract'],
   ['07-stop-batch.test.mjs', 'stop / batch / hotkeys'],
   ['08-safety.test.mjs', 'safety edges'],
+  ['09-vendor.test.mjs', 'vendored engines'],
   [join('..', 'tools', 'check-repo.mjs'), 'A13 repository hygiene'],
 ]
 

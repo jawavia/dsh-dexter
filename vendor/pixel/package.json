@@ -1,0 +1,82 @@
+{
+  "name": "dsh-click-matrix",
+  "version": "0.9.5",
+  "description": "Safe cross-point lattice screen inspection and smooth mouse control for DSH · 屏幕点阵截屏定位与安全鼠标操控（全局急停热键、text-first 读屏、batch 续跑/人类活动后继续、人类空闲自动等待、dryRun、窗口相对坐标、常开授权、全程审计）",
+  "author": "dsh-click-matrix contributors",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "computer-use",
+    "desktop-automation",
+    "mouse",
+    "ui-automation",
+    "windows"
+  ],
+  "os": [
+    "win32"
+  ],
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "check": "node tools/check-repo.mjs",
+    "build:fixture": "node tools/build-fixture.mjs",
+    "pretest:helper": "node tools/build-fixture.mjs",
+    "test": "node tools/check-repo.mjs && node tools/access-smoke.mjs && node tools/grid-smoke.mjs && node tools/host-smoke.mjs && node tools/client-smoke.mjs",
+    "test:helper": "node tools/helper-smoke.mjs",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/release.ps1"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib/",
+    "runtime/",
+    "skills/",
+    "locale/*.json",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "TEST-HANDOFF.md",
+    "INSTALL-WINDOWS.md",
+    "TEST-PLAN-WINDOWS.md",
+    "RELEASE-v0.8.3.md",
+    "SECURITY.md",
+    "install.ps1",
+    "LICENSE",
+    "PROTOCOL.md",
+    "tools/",
+    "RELEASE-v0.8.4.md",
+    "RELEASE-v0.8.5.md",
+    "RELEASE-v0.8.5.1.md",
+    "test/fixture.cs",
+    "RESPONSIBLE-USE.md"
+  ],
+  "icon": "icon.svg",
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.2.1-rc.2 <0.3.0"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

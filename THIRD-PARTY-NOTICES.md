@@ -1,23 +1,29 @@
 # Third-party notices
 
-`dsh-dexter` itself is MIT (see `LICENSE`). This bundle **ships no third-party source code except the small derived helper described
-under _Derived code inside this repository_**: the desktop injection is loaded at runtime
-from packages that are already installed on the machine, through explicit adapters
-(`backends/legacy-*.js`). That is a deliberate licensing and safety boundary.
+`dsh-dexter` itself is MIT (see `LICENSE`). This bundle **ships the two engines it drives
+inside `vendor/`** (unmodified upstream code, MIT) plus the small derived helper described
+under _Derived code inside this repository_. Vendoring is what makes a fresh install work
+with no prerequisites; every license notice travels with the copy.
 
-## Runtime prerequisites (loaded, not vendored)
+## Vendored engines (inside `vendor/`)
 
-| Package | Role in dsh-dexter | License | Source |
-|---|---|---|---|
-| `dsh-click-matrix` | pixel injection: Win32 helper, lattice coordinate resolution, window deny list, screenshots | MIT (`engines/pixel/LICENSE`, "dsh-click-matrix contributors") | separate package on the machine |
-| `dsh-x2` | UIA + Win32 primitives: `SendInput`, `SetCursorPos`, UI Automation PowerShell bridge, PNG encoding | MIT (`LICENSE`, "Copyright (c) 2026 ql0423"); local fork of `dsh-screen` | https://github.com/ql0423/dsh-screen (MIT) |
-| `koffi` (dependency of `dsh-x2`) | FFI used for the Win32 calls | MIT (`LICENSE.txt`, Niels Martignène) | https://koffi.dev |
-| `@deepseek-ai/schemastery` | optional import, only to expose `Config` to Plugin Manager | shipped with DSH | host package |
+| Package | Version | Role in dsh-dexter | License | Where |
+|---|---|---|---|---|
+| `dsh-click-matrix` | 0.9.5 | pixel injection: Win32 helper, lattice coordinate resolution, window deny list, screenshots | MIT (dsh-click-matrix contributors) | `vendor/pixel/LICENSE` |
+| `@deepseek-ai/schemastery` | 3.18.5 | its `Config` schema is imported by the pixel engine's config module | MIT | `vendor/pixel/node_modules/@deepseek-ai/schemastery/LICENSE` |
+| `@deepseek-ai/cosmokit` | — | utils required by schemastery | MIT | `vendor/pixel/node_modules/@deepseek-ai/cosmokit/LICENSE` |
+| `@standard-schema/spec` | — | type-level schema spec required by schemastery | MIT | `vendor/pixel/node_modules/@standard-schema/spec/LICENSE` |
+| `dsh-x2` | 0.6.0-local.1 | UIA + Win32 primitives: `SendInput`, `SetCursorPos`, UI Automation PowerShell bridge, PNG encoding | MIT (Copyright (c) 2026 ql0423; local fork of `dsh-screen`, https://github.com/ql0423/dsh-screen) | `vendor/uia/LICENSE` |
+| `koffi` + `@koromix/koffi-win32-x64` | 3.3.6 | FFI used for the Win32 calls, with its compiled `koffi.node` | MIT (Niels Martignène, https://koffi.dev) | `vendor/uia/node_modules/koffi/LICENSE.txt`, `vendor/uia/node_modules/@koromix/koffi-win32-x64/` |
 
 **Nothing else is required.** The stroke toy used to load `dsh-stroke` (which declares
 no license and ships an unsigned helper binary); since 2026-11-14 the toy draws
 through the Win32 primitives above (`backends/toy-draw.js`), so that dependency is
 gone — see `DEVIATIONS.md` D3.
+
+A machine that already has these engines installed can still point at them with
+`legacyPixelPath` / `legacyUiaPath`, `DSH_DEXTER_LEGACY_ROOT` or `local.config.json`;
+an explicit path wins over the vendored copy (`backends/resolve.js`).
 
 ## Derived code inside this repository
 

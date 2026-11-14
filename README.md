@@ -49,12 +49,14 @@ human grants again. A `stop.signal` file in the data root is honoured too.
 1. The plugin is a bundle: `package.json` declares `dsh.bundle.patch`.
 2. From DSH: **Plugins → Add plugin →** pick this directory (or install it with the
    plugin manager's install action). It is installed into the profile, not globally.
-3. `dsh-click-matrix` and `dsh-x2` must be reachable (they supply the injection; no
-   other package is needed — the stroke toy draws in-repo since 2026-11-14). Any of:
+3. **No prerequisites.** The two engines ship inside `vendor/` (unmodified MIT code plus
+   the `koffi` native module, ~5.5 MB), so a fresh machine can install this bundle and
+   inject. An explicit path still wins when one is given:
    - `legacyPixelPath` / `legacyUiaPath` config values,
    - `DSH_DEXTER_LEGACY_ROOT` pointing at a tree with `engines/{pixel,control}`,
    - `local.config.json` next to this package (`{ "legacyRoot": "…" }`, git-ignored),
    - the packages installed next to this one in the profile.
+   Resolution order: config → `vendor/` → env root → `local.config.json` → package.
 4. Do **not** enable the old `dsh-desktop-hands` bundle at the same time: the tools
    would be duplicated and two gates would guard the same desktop.
 
