@@ -87,13 +87,23 @@ from a human's command or hotkey, and each use is a separate audit row
 
 ## Configuration
 
-Three numbers are meant to be changed often, so they are **volatile** and appear as a form
-on DSH's Settings page (`armMinutes` / `armActions` / `maxActionsPerMinute`): the form writes
-the profile patch and the plugin reads the new value without a reload.
+Three numbers are meant to change while the plugin runs:
 
-Every other key is ordinary and lives in the profile patch; change one with
-`/dexter set <key> <value>` (validated against the field spec, persisted through the host
-config editor), or edit the patch directly:
+| Key | Meaning | Range |
+|---|---|---|
+| `armMinutes` | how long one session grant lives | 1..480 |
+| `armActions` | how many write actions it covers | 1..5000 |
+| `maxActionsPerMinute` | rate cap (0 = no cap) | 0..600 |
+
+Change them **on the desktop panel** (right-click → 设置 → 加减 / 恢复默认), or with
+`/dexter set armMinutes 30`. Both write the same runtime-override layer
+(`~/.dsh/dexter/runtime-overrides.json`) and take effect immediately — no reload.
+Precedence: panel/command override → host config → `FIELD_SPEC` default.
+
+Every key is declared once, in `kernel/config.js` (`FIELD_SPEC`); `test/03` fails if a second
+declaration appears. The other keys are ordinary and live in the profile patch:
+`/dexter set <key> <value>` (validated, written through the host config editor) or edit it
+directly:
 
 ```yaml
 - id: dsh-dexter
@@ -101,24 +111,15 @@ config editor), or edit the patch directly:
     askOnWrite: true
     hoverFree: true
 ```
-## Configuration
 
-Every key is declared once, in `kernel/config.js` (`FIELD_SPEC`), and exposed to
-Plugin Manager as one schema — that page is the single place to change numbers. There
-is no `config-overrides.json` and no second precedence rule. A profile-level patch can
-target the row by id:
+The permanent deny list and the sensitive-target lists live in `kernel/targets.js` and are
+deliberately **not** configurable: widening them is the one change that must require editing
+code (DEVIATIONS.md D12).
 
-```yaml
-- id: dsh-dexter
-  config:
-    armMinutes: 45
-    armActions: 300
-    maxActionsPerMinute: 80
-```
-
-The permanent deny list and the sensitive-target lists live in `kernel/targets.js` and
-are deliberately **not** configurable: widening them is the one change that must require
-editing code (DEVIATIONS.md D12).
+> Why not a Settings page? DSH renders forms only for *volatile* fields, and no shipped
+> client renders those forms yet; its config editor also refuses a nested include
+> (`HMR transactions cannot be nested`). The panel is the honest answer — see DEVIATIONS D1
+> and the development log.
 
 ## Human commands
 
@@ -176,24 +177,11 @@ work around another product's terms or anti-abuse controls. The pixel backend ke
 window deny list (security software, credential managers, system configuration) and
 the kernel refuses to inject while a human is at the keyboard.
 
-## Version control (local only)
+## Version control
 
-The repository is a plain local git repository:
-
-```
-git log --oneline        # a3e143e Initial commit: dsh-dexter v0.1.0 (local-only)
-git tag -l               # v0.1.0
-git remote -v            # empty on purpose — nothing is pushed
-```
-
-- **no remote is configured and nothing is pushed**; that is a standing rule from the
-  human (`DEVIATIONS.md` D11) — publishing / pushing / npm waits for an explicit go;
-- `local.config.json` (the machine wiring) and `baseline/local/` (raw measurements with
-  machine paths) are git-ignored, so the tree stays publishable as-is;
-- the commit identity is repo-local (`dsh-dexter (local) <dexter@localhost>`), not a global
-  git identity, and no credentials are involved;
-- a zip snapshot from before the first commit is kept outside the tree
-  (`..\dsh-dexter-snapshot-20261114-183331.zip`).
+A **private** GitHub repository (`jawavia/dsh-dexter`), plus a local clone.`v0.1.0` is the
+tag that was pushed together with the first CI run; later commits are pushed when the human
+says so. Nothing is published: no npm package, no Release, no public repository.
 
 ## What is deliberately not here
 
@@ -223,3 +211,15 @@ node tools/ci-local.mjs                      # A15: run the CI definition locall
 ```
 
 Measured results for this build are in `evidence/`.
+
+## Documentation index
+
+| File | What it is |
+|---|---|
+| `docs/工具说明.md` | the four tools, their parameters, and a worked example |
+| `docs/开发日志.md` | what was built, what broke, what fixed it (with commit ids) |
+| `docs/MIGRATION.md` | old `dsh-click-matrix` tool and command → new ones |
+| `docs/HANDS.md` | the model-facing handbook |
+| `docs/DETAIL.md` | design detail and invariants |
+| `evidence/验收报告.md` | acceptance report (A1–A15, the live loop, the limits) |
+| `evidence/SUMMARY.md` | one-screen evidence index |
