@@ -160,7 +160,9 @@ if (root) {
     runtimeLicenses.push({ engine: name, ...(license || { name: '(not found)', license: 'MISSING' }) })
   }
 }
-if (runtimeLicenses.length === 0) warn('legacy engines not resolvable here: runtime license check skipped')
+// A machine-level installation is optional now that the engines are vendored: only warn
+// when neither source could be inspected.
+if (runtimeLicenses.length === 0 && vendoredLicenses.length === 0) warn('no engine copy to license-check (neither vendor/ nor a local install)')
 for (const entry of runtimeLicenses) {
   if (!entry.license || entry.license === 'UNKNOWN' || entry.license === 'MISSING') {
     warn(`runtime prerequisite ${entry.engine} (${entry.name}) declares no license: not redistributed by this repo`)

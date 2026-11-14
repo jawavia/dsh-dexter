@@ -78,7 +78,8 @@ report.ok('A6 the old dual-source keys are gone', !Object.hasOwn(armDefaults, 'a
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    // vendor/ is unmodified upstream code: its own copies of these keys are not ours.\n    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'baseline' || entry.name === 'evidence' || entry.name === 'vendor') continue
+    // vendor/ is unmodified upstream code: its own copies of these keys are not ours.
+    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'baseline' || entry.name === 'evidence' || entry.name === 'vendor') continue
     const full = join(dir, entry.name)
     if (entry.isDirectory()) walk(full, out)
     else if (/\.(mjs|js|json|yml|md)$/.test(entry.name)) out.push(full)
