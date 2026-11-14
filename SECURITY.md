@@ -51,6 +51,16 @@ input into the local desktop. It is a local RPA / personal-automation tool.
 
 **Explicitly out of scope (stated so nobody over-trusts it):**
 
+- **Reads are not gated.** `hands_view` (screenshots, UIA trees, window lists, text,
+  clipboard reads go through `hands_act`) does not ask before reading: a screenshot of a
+  password manager window is allowed, and its pixels may contain secrets. The permanent
+  system-target list applies to writes only.
+- **`focus` changes the foreground window** without a write authorization. It is a read-side
+  action by classification, but it visibly changes the desktop; the audit records it.
+- **A deliberately injected key that matches a human hotkey is refused**, and the plugin's
+  own keystrokes are ignored by the stop poller only for the exact combo injected — but
+  another program may still synthesize input that looks like the human.
+
 - **The audit is not a security boundary.** It is a key-less hash chain: it detects
   silent edits and insertions in a local file, not an attacker who rewrites the
   whole file. Records are ordinary files that the same user can delete.

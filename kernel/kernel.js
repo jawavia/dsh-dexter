@@ -410,6 +410,9 @@ export class Kernel {
     // No window information at all: the permanent deny list cannot be applied, so this is
     // "unknown" (refused), never "normal" (fail closed).
     if (!info) return { category: 'unknown', reasons: ['读不到目标窗口信息'], label: '(目标未知)', source }
+    if (info.releaseUnknown === true) {
+      return { category: 'unknown', reasons: ['拖拽终点无法探测'], label: '(终点未知)', source }
+    }
     return classifyTarget({ ...info, source })
   }
 

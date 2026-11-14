@@ -27,6 +27,21 @@ release the left button in one stroke. It is derived from `dsh-x2`'s private
 Copyright (c) 2026 ql0423. Everything else (shape geometry, caps, pacing, abort and
 release guarantees) was written for this plugin.
 
+The MIT terms that apply to that derived portion:
+
+> Permission is hereby granted, free of charge, to any person obtaining a copy of this
+> software and associated documentation files (the "Software"), to deal in the Software
+> without restriction, including without limitation the rights to use, copy, modify,
+> merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
+> persons to whom the Software is furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all copies or
+> substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+> In no event shall the authors or copyright holders be liable for any claim, damages or
+> other liability arising from the Software or its use.
+
 ## What this repository never contains
 
 - no `.exe`: the pixel helper is compiled at runtime by its own package from

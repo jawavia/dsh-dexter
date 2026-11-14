@@ -34,7 +34,8 @@ capabilities (all with raw transcripts in the evidence folder):
 | 命令契约（`/dexter` 返回 `CommandResult`、`rawInput`） | `test/06-command.test.mjs` |
 
 **Overall:** A1–A14 pass with one documented caveat (D8, the single legacy `loaded`
-marker row; the stroke licence caveat D3 is now resolved), A11 at 20/20, A12 no
+marker row; the stroke licence caveat D3 is now resolved), A11 at 19/20 with the single
+deliberate rule difference documented above, A12 no
 violation, A15 prepared + locally reproducible but never executed on a runner. Per the
 order's own gate ("任一不通过 → 不进 P6 发布"), the only remaining blocker to a public
 release is A15 — which is itself gated by the human's standing no-push rule
