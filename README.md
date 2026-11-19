@@ -1,12 +1,17 @@
 # dsh-dexter
 
-**The internal upgrade of `dsh-click-matrix` (v0.9.5)** — not a new product, and not
-published anywhere.
+**The lighter parallel branch of `dsh-click-matrix`** — v0.10.0. It sits *alongside*
+the 0.9.2 line rather than replacing it: a second, smaller line of the same idea, with
+fewer tools and a smaller surface.
 
 Same pixel injection underneath (the engine is vendored, unmodified), with the layer
 around it rewritten: four model-facing tools instead of fourteen, one bounded
 authorization instead of a latch, one hash-chained audit instead of per-engine files.
 One settings page, one gate, one trail.
+
+**Status: feature-frozen.** 0.10.0 is the version of record for this branch. Later
+releases are bug fixes only — no new tools, no restructuring, no further feature
+versions. See [Maintenance](#maintenance).
 
 ## Tools
 
@@ -42,11 +47,11 @@ human grants again. A `stop.signal` file in the data root is honoured too.
 
 ## Install (local bundle)
 
-> **Internal only.** This is the upgrade path for `dsh-click-matrix`, installed in this
-> profile; it is not published to npm and has no public release. The old
-> `dsh-desktop-hands` bundle stays installed but **disabled**: enabling both would put
-> two tool sets and two gates on one desktop, and their helpers would fight over the
-> same global hotkeys. See `docs/MIGRATION.md` for what moved where.
+> **Installed from source, by design.** There is no npm package and no binary
+> distribution: the bundle is installed from this repository (clone, then pick the
+> directory in DSH). If you are replacing `dsh-click-matrix`, keep the old bundle
+> **disabled** — two tool sets and two gates on one desktop would leave their helpers
+> fighting over the same global hotkeys. See `docs/MIGRATION.md` for what moved where.
 
 1. The plugin is a bundle: `package.json` declares `dsh.bundle.patch`.
 2. From DSH: **Plugins → Add plugin →** pick this directory (or install it with the
@@ -179,9 +184,22 @@ the kernel refuses to inject while a human is at the keyboard.
 
 ## Version control
 
-A **private** GitHub repository (`jawavia/dsh-dexter`), plus a local clone.`v0.1.0` is the
-tag that was pushed together with the first CI run; later commits are pushed when the human
-says so. Nothing is published: no npm package, no Release, no public repository.
+A public GitHub repository (`jawavia/dsh-dexter`). `v0.10.0` is the release this README
+describes; `v0.1.0` is the first tag, kept as history. Nothing is published to npm, there
+is no binary distribution, and CI runs static checks only — the GUI tests that inject
+real input are deliberately not part of the workflow.
+
+## Maintenance
+
+**Feature-frozen at 0.10.0.** This is the final feature version of the branch: bug and
+security fixes only — no new tools, no restructuring, no further feature versions. It is
+declared a **parallel, lighter branch** of the `dsh-click-matrix` line: it does not
+supersede 0.9.2, and it is not maintained as a general-purpose product.
+
+What "maintained" still means: a failing test or a reproducible defect gets a fix, the
+repository stays readable, and the security policy below stays in force. What it does not
+mean: feature requests, new integrations, or a version number that keeps moving.
+
 
 ## What is deliberately not here
 

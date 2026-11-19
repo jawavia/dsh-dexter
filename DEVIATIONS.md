@@ -6,6 +6,38 @@ that is written down.
 
 ---
 
+## D15 — Public release at 0.10.0 supersedes D11 (2026-11-19)
+
+**What D11 said:** the repository is local-only; no remote, no push, no tag push, no
+release, no upload, each time.
+
+**What the human decided (2026-11-19):** publish **v0.10.0** on GitHub — the repository
+becomes public and gets one Release — then freeze the branch. D11 rules 1 and 2 are
+therefore superseded; rules 3 and 4 (do not install into the live profile next to
+`dsh-desktop-hands`; do not sharpen the gate further) still stand.
+
+**Scope actually taken:**
+
+| Item | Decision |
+|---|---|
+| Channel | **GitHub only**: public repository + tag `v0.10.0` + one Release |
+| npm | **Not published.** No npm package, ever, for this branch |
+| Assets | No binaries. The Release carries source only; the vendored engines stay as MIT source in `vendor/` |
+| Position | Declared a **parallel, lighter branch** of `dsh-click-matrix` — not a replacement for 0.9.2 |
+| Maintenance | **Feature-frozen at 0.10.0**: bug and security fixes only, no further feature versions |
+
+**Why the lighter branch exists at all:** `dsh-click-matrix` was withdrawn from npm on
+2026-11-04 and the package was removed by npm Support on 2026-11-18. This branch keeps
+the capability the human uses, with a smaller model-facing surface (4 tools, ~7 KB of
+schemas) and a stricter target policy, and it is distributed as source that a human
+installs deliberately.
+
+**What it costs:** the repository is public, so the capability and its limits are
+visible to anyone; source installs are less convenient than a package; and "public"
+means the code can be cloned and read without the author's presence. Accepted.
+
+---
+
 ## D14 — The plugin owns its arm hotkeys; the engine keeps the stop ones (2026-11-14)
 
 **Problem found during acceptance:** the status line said

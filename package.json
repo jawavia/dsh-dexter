@@ -1,10 +1,18 @@
 {
   "name": "dsh-dexter",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.10.0",
+  "private": false,
   "type": "module",
-  "description": "Windows-only desktop hands for DeepSeek Harness: four tools, one authorization gate, one audit trail.",
+  "description": "Windows-only desktop hands for DeepSeek Harness: four tools, one authorization gate, one audit trail. The lighter parallel branch of dsh-click-matrix.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jawavia/dsh-dexter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jawavia/dsh-dexter/issues"
+  },
+  "homepage": "https://github.com/jawavia/dsh-dexter#readme",
   "main": "index.js",
   "icon": "icon.svg",
   "os": [
@@ -49,6 +57,7 @@
     "cordis.patch.yml",
     "docs",
     "README.md",
+    "CHANGELOG.md",
     "SECURITY.md",
     "THIRD-PARTY-NOTICES.md",
     "LICENSE"

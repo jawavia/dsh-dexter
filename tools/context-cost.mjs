@@ -146,7 +146,7 @@ async function main() {
       tokensOverSession: oldTokens * requests,
     },
     new: {
-      label: 'dsh-dexter 0.1.0 (kernel + adapters)',
+      label: 'dsh-dexter 0.10.0 (kernel + adapters)',
       tools: newTools,
       schemaBytes: newBytes,
       extraBytes: 0,

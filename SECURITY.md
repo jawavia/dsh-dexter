@@ -34,6 +34,23 @@ A Windows-only desktop automation plugin for DeepSeek Harness. It lets a model l
 at the local screen and, after a human decision, inject real mouse and keyboard
 input into the local desktop. It is a local RPA / personal-automation tool.
 
+## What this is not
+
+Stated plainly, because the distinction matters for anyone who finds this repository:
+
+- **Not a research or red-team tool.** It is not published as a vehicle for security
+  research, and it is not intended to demonstrate or discover weaknesses in other
+  software.
+- **Not a way around another product's terms or anti-abuse controls.** Working around
+  a CAPTCHA, an anti-cheat, a rate limit, a paywall or a licensing check is not a
+  supported use, and the target policy refuses the obvious cases outright.
+- **Not for unattended use on someone else's machine.** Every write needs a human
+  decision (or a human-opened, bounded, expiring grant), and injection suspends while
+  the human is using the machine.
+- **Not a distribution channel for arbitrary code.** There is no npm package, no
+  prebuilt helper binary in a release, and no auto-start: the vendored engines are
+  MIT-licensed source in `vendor/`, compiled or loaded locally.
+
 ## Threat model (what the guarantees are and are not)
 
 **In scope (design intent):**
@@ -91,10 +108,12 @@ input into the local desktop. It is a local RPA / personal-automation tool.
 
 ## Reporting a vulnerability
 
-Open a private security advisory on the repository, or contact the maintainer
-listed in `package.json`. Please include: the DSH version, the plugin version, the
-tool call, the audit rows involved (redact any personal text), and what you
-expected. Do not include screenshots of personal data.
+Open a private security advisory on the repository (GitHub → **Security** → *Report a
+vulnerability*). Please include: the DSH version, the plugin version, the tool call, the
+audit rows involved (redact any personal text), and what you expected. Do not include
+screenshots of personal data.
+
+The project is feature-frozen at 0.10.0; security fixes are still accepted and shipped.
 
 ## Data locations
 
